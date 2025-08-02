@@ -21,7 +21,7 @@ import {
   HelpCircle,
   LogIn,
   Plus,
-  MotorbikeFill as Motorcycle,
+  Bike as Motorcycle,
   Store,
   Award,
   Navigation
