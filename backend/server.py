@@ -305,6 +305,9 @@ async def create_delivery(delivery_data: CreateDelivery, credentials: HTTPAuthor
         
         deliveries_collection.insert_one(delivery)
         
+        # Remove MongoDB _id for JSON serialization
+        delivery.pop("_id", None)
+        
         # Try to match with best motoboy
         best_match = find_best_motoboy(delivery)
         
