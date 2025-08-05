@@ -325,22 +325,44 @@ function App() {
                 <h3 className="text-2xl font-semibold text-white mb-6">Escolha seu perfil</h3>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <Button 
-                    onClick={() => handleGoogleAuth('motoboy')}
-                    disabled={loading}
+                    onClick={() => handleShowRegistration('motoboy')}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-6 text-lg rounded-xl flex items-center gap-3"
                   >
                     <Motorcycle className="h-6 w-6" />
-                    {loading ? 'Carregando...' : 'Entrar como Motoboy'}
+                    Cadastrar como Motoboy
                   </Button>
                   <Button 
-                    onClick={() => handleGoogleAuth('lojista')}
-                    disabled={loading}
+                    onClick={() => handleShowRegistration('lojista')}
                     className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-6 text-lg rounded-xl flex items-center gap-3"
                   >
                     <Store className="h-6 w-6" />
-                    {loading ? 'Carregando...' : 'Entrar como Lojista'}
+                    Cadastrar como Lojista
                   </Button>
                 </div>
+                
+                {/* Demo Login Section */}
+                <div className="mt-8 pt-8 border-t border-slate-600">
+                  <p className="text-slate-400 text-sm mb-4">Ou entre com conta demo:</p>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <Button 
+                      onClick={() => handleGoogleAuth('motoboy')}
+                      disabled={loading}
+                      variant="outline"
+                      className="border-slate-500 text-slate-300 hover:bg-slate-800 px-6 py-3"
+                    >
+                      {loading ? 'Carregando...' : 'Demo Motoboy'}
+                    </Button>
+                    <Button 
+                      onClick={() => handleGoogleAuth('lojista')}
+                      disabled={loading}
+                      variant="outline"
+                      className="border-slate-500 text-slate-300 hover:bg-slate-800 px-6 py-3"
+                    >
+                      {loading ? 'Carregando...' : 'Demo Lojista'}
+                    </Button>
+                  </div>
+                </div>
+                
                 <p className="text-slate-400 text-sm mt-4">
                   * Login via Google OAuth será integrado em produção
                 </p>
