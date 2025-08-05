@@ -674,12 +674,12 @@ class SrBoyAPITester:
             self.log_test("PIN Generation on Accept", False, "No motoboy token available")
             return False, None
 
-        # Create delivery first (should auto-match and generate PIN)
+        # Create delivery first (should be pending since motoboy is not in that city)
         delivery_created, delivery_id = self.test_create_delivery_for_pin_testing()
         if not delivery_created:
             return False, None
 
-        # Get delivery details to check if PIN was generated
+        # Get delivery details to check status
         success, status, data = self.make_request('GET', '/api/deliveries', token=self.lojista_token)
         
         if not success or 'deliveries' not in data:
@@ -697,19 +697,43 @@ class SrBoyAPITester:
             self.log_test("PIN Generation on Accept", False, "Delivery not found")
             return False, None
 
-        # Check if PIN was generated
-        if 'pin_confirmacao' in delivery and delivery['pin_confirmacao']:
-            pin_confirmacao = delivery['pin_confirmacao']
-            if len(pin_confirmacao) == 4:
-                details = f"PIN generated successfully - Confirmation PIN: {pin_confirmacao} (4 digits), Status: {delivery['status']}"
-                self.log_test("PIN Generation on Accept", True, details)
-                return True, delivery_id
+        # If delivery is pending, manually accept it to generate PIN
+        if delivery['status'] == 'pending':
+            success, status, data = self.make_request('POST', f'/api/deliveries/{delivery_id}/accept', token=self.motoboy_token)
+            
+            if success and 'pin_confirmacao' in data:
+                pin_confirmacao = data['pin_confirmacao']
+                if len(pin_confirmacao) == 4:
+                    details = f"PIN generated on accept - Confirmation PIN: {pin_confirmacao} (4 digits)"
+                    self.log_test("PIN Generation on Accept", True, details)
+                    return True, delivery_id
+                else:
+                    details = f"PIN format incorrect - Expected 4 digits, got: {pin_confirmacao}"
+                    self.log_test("PIN Generation on Accept", False, details)
+                    return False, delivery_id
             else:
-                details = f"PIN format incorrect - Expected 4 digits, got: {pin_confirmacao}"
+                details = f"Accept failed - Status: {status}, Response: {data}"
+                self.log_test("PIN Generation on Accept", False, details)
+                return False, delivery_id
+        
+        # If delivery is already matched, check if PIN was generated
+        elif delivery['status'] == 'matched':
+            if 'pin_confirmacao' in delivery and delivery['pin_confirmacao']:
+                pin_confirmacao = delivery['pin_confirmacao']
+                if len(pin_confirmacao) == 4:
+                    details = f"PIN auto-generated on matching - Confirmation PIN: {pin_confirmacao} (4 digits)"
+                    self.log_test("PIN Generation on Accept", True, details)
+                    return True, delivery_id
+                else:
+                    details = f"PIN format incorrect - Expected 4 digits, got: {pin_confirmacao}"
+                    self.log_test("PIN Generation on Accept", False, details)
+                    return False, delivery_id
+            else:
+                details = f"Delivery matched but PIN not generated"
                 self.log_test("PIN Generation on Accept", False, details)
                 return False, delivery_id
         else:
-            details = f"PIN not generated - Delivery status: {delivery['status']}, PIN field present: {'pin_confirmacao' in delivery}"
+            details = f"Unexpected delivery status: {delivery['status']}"
             self.log_test("PIN Generation on Accept", False, details)
             return False, delivery_id
 
