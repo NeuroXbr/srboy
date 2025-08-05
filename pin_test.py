@@ -216,6 +216,8 @@ class PINSystemTester:
         pin_data = {"pin": "WRONG"}
         pin_success, pin_status, pin_response = self.make_request('POST', f'/api/deliveries/{self.test_delivery_id}/validate-pin', pin_data, self.motoboy_token)
         
+        print(f"   DEBUG: PIN validation response - Status: {pin_status}, Response: {pin_response}")
+        
         # Check the delivery state after incorrect PIN
         delivery_success, delivery_status, delivery_data = self.make_request('GET', '/api/deliveries', token=self.motoboy_token)
         if delivery_success:
@@ -226,7 +228,7 @@ class PINSystemTester:
                     break
             
             if test_delivery:
-                print(f"   DEBUG: After incorrect PIN - pin_tentativas: {test_delivery.get('pin_tentativas')}, pin_bloqueado: {test_delivery.get('pin_bloqueado')}")
+                print(f"   DEBUG: After incorrect PIN - pin_tentativas: {test_delivery.get('pin_tentativas')}, pin_bloqueado: {test_delivery.get('pin_bloqueado')}, pin_confirmacao: {test_delivery.get('pin_confirmacao')}")
         
         # Now try to finalize - should fail because PIN hasn't been validated correctly
         status_data = {"status": "delivered"}
