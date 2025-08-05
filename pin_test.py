@@ -299,6 +299,24 @@ class PINSystemTester:
             self.log_test("Finalize After PIN", False, "No motoboy token or delivery ID available")
             return False
 
+        # First, go through proper delivery flow: pickup_confirmed -> in_transit -> delivered
+        # Step 1: Confirm pickup
+        status_data = {"status": "pickup_confirmed"}
+        success, status, data = self.make_request('PUT', f'/api/deliveries/{self.test_delivery_id}/status', status_data, self.motoboy_token)
+        
+        if not success:
+            self.log_test("Finalize After PIN", False, f"Failed to confirm pickup: {status} - {data}")
+            return False
+        
+        # Step 2: Start transit
+        status_data = {"status": "in_transit"}
+        success, status, data = self.make_request('PUT', f'/api/deliveries/{self.test_delivery_id}/status', status_data, self.motoboy_token)
+        
+        if not success:
+            self.log_test("Finalize After PIN", False, f"Failed to start transit: {status} - {data}")
+            return False
+        
+        # Step 3: Finalize delivery
         status_data = {"status": "delivered"}
         success, status, data = self.make_request('PUT', f'/api/deliveries/{self.test_delivery_id}/status', status_data, self.motoboy_token)
         
