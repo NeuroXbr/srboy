@@ -616,6 +616,7 @@ async def create_delivery(delivery_data: CreateDelivery, credentials: HTTPAuthor
             
             delivery["motoboy_id"] = best_match["motoboy"]["id"]
             delivery["status"] = "matched"
+            delivery["pin_confirmacao"] = pin_confirmacao
             
             return {
                 "delivery": delivery,
@@ -630,7 +631,8 @@ async def create_delivery(delivery_data: CreateDelivery, credentials: HTTPAuthor
                     "ranking_score": best_match["ranking_score"],
                     "distance_to_pickup": round(best_match["distance_to_pickup"], 2)
                 },
-                "pricing": pricing
+                "pricing": pricing,
+                "pin_confirmacao": pin_confirmacao  # Return PIN for lojista display
             }
         
         return {
