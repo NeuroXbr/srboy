@@ -390,10 +390,14 @@ def validate_delivery_pin(delivery_id: str, entered_pin: str) -> dict:
     
     # Validate PIN
     if entered_pin.upper() == delivery["pin_confirmacao"].upper():
-        # PIN correct - reset attempts and allow delivery completion
+        # PIN correct - reset attempts and mark as successfully validated
         deliveries_collection.update_one(
             {"id": delivery_id},
-            {"$set": {"pin_tentativas": 0}}
+            {"$set": {
+                "pin_tentativas": 0,  # Reset attempts after successful validation
+                "pin_validado_com_sucesso": True,  # New field to track successful validation
+                "pin_validado_em": datetime.now()  # Timestamp of successful validation
+            }}
         )
         return {"success": True, "message": "PIN validado com sucesso!", "code": "PIN_VALID"}
     else:
