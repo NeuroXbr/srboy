@@ -11,7 +11,7 @@ import jwt
 from geopy.distance import geodesic
 import asyncio
 
-app = FastAPI(title="Super Boy Delivery API", version="1.0.0")
+app = FastAPI(title="SrBoy Delivery API", version="2.0.0")
 
 # CORS configuration
 app.add_middleware(
@@ -25,17 +25,18 @@ app.add_middleware(
 # Database connection
 MONGO_URL = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
 client = MongoClient(MONGO_URL)
-db = client.superboy_db
+db = client.srboy_db
 
 # Collections
 users_collection = db.users
 deliveries_collection = db.deliveries
+delivery_receipts_collection = db.delivery_receipts
 chats_collection = db.chats
 rankings_collection = db.rankings
 
 # Security
 security = HTTPBearer()
-JWT_SECRET = os.environ.get('JWT_SECRET', 'super-boy-secret-key')
+JWT_SECRET = os.environ.get('JWT_SECRET', 'srboy-secret-key-2024')
 
 # Pydantic Models
 class User(BaseModel):
@@ -49,6 +50,8 @@ class User(BaseModel):
     # Motoboy specific fields
     cnh: Optional[str] = None
     moto_photo_url: Optional[str] = None
+    moto_model: Optional[str] = None
+    moto_color: Optional[str] = None
     license_plate: Optional[str] = None
     base_city: Optional[str] = None
     bank_details: Optional[dict] = None
@@ -58,6 +61,7 @@ class User(BaseModel):
     success_rate: Optional[float] = Field(default=0.0)
     is_available: Optional[bool] = Field(default=True)
     current_location: Optional[dict] = None  # {lat, lng}
+    wallet_balance: Optional[float] = Field(default=0.0)
     
     # Lojista specific fields
     fantasy_name: Optional[str] = None
@@ -65,7 +69,7 @@ class User(BaseModel):
     address: Optional[dict] = None
     category: Optional[str] = None
     business_hours: Optional[dict] = None
-    wallet_balance: Optional[float] = Field(default=0.0)
+    loja_wallet_balance: Optional[float] = Field(default=150.0)  # Increased initial balance
 
 class Delivery(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -73,30 +77,59 @@ class Delivery(BaseModel):
     motoboy_id: Optional[str] = None
     pickup_address: dict
     delivery_address: dict
+    recipient_info: dict  # Nome completo, RG, autorizado alternativo
     distance_km: float
-    base_price: float = Field(default=9.00)  # R$ 9,00 minimum
-    additional_price: float = Field(default=0.0)  # R$ 2,50 per km after 4th km
+    base_price: float = Field(default=10.00)  # Updated to R$ 10,00
+    additional_price: float = Field(default=0.0)  # R$ 2,00 per km
     platform_fee: float = Field(default=2.00)  # Fixed R$ 2,00 fee
+    waiting_fee: float = Field(default=0.0)  # R$ 1,00 per minute after 10 min
     total_price: float
-    status: str = Field(default="pending")  # pending, matched, in_progress, completed, cancelled
+    motoboy_earnings: float = Field(default=0.0)  # New calculation logic
+    status: str = Field(default="pending")  # pending, matched, pickup_confirmed, in_transit, waiting, delivered, cancelled
     created_at: datetime = Field(default_factory=datetime.now)
     matched_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    pickup_confirmed_at: Optional[datetime] = None
+    delivery_started_at: Optional[datetime] = None
+    waiting_started_at: Optional[datetime] = None
+    waiting_minutes: Optional[int] = Field(default=0)
+    delivered_at: Optional[datetime] = None
     description: Optional[str] = None
     priority_score: Optional[int] = Field(default=0)
+    product_description: Optional[str] = None
+
+class DeliveryReceipt(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    delivery_id: str
+    loja_id: str
+    motoboy_id: str
+    loja_name: str
+    motoboy_name: str
+    motoboy_info: dict  # Name, moto details, plate
+    recipient_info: dict  # Name, RG
+    product_description: str
+    pickup_confirmed_at: datetime
+    delivered_at: datetime
+    pickup_address: dict
+    delivery_address: dict
+    distance_km: float
+    base_price: float
+    additional_price: float
+    waiting_fee: float
+    platform_fee: float
+    total_price: float
+    motoboy_earnings: float
+    created_at: datetime = Field(default_factory=datetime.now)
 
 class CreateDelivery(BaseModel):
     pickup_address: dict
     delivery_address: dict
+    recipient_info: dict  # {name, rg, alternative_recipient?}
     description: Optional[str] = None
+    product_description: Optional[str] = None
 
-class MatchingResult(BaseModel):
-    delivery_id: str
-    motoboy_id: str
-    motoboy_name: str
-    motoboy_ranking: int
-    distance_to_pickup: float
-    estimated_time: int
+class WaitingUpdate(BaseModel):
+    waiting_minutes: int
+    reason: Optional[str] = None
 
 # Cities served
 CITIES_SERVED = [
@@ -105,26 +138,37 @@ CITIES_SERVED = [
 
 # Helper Functions
 def calculate_delivery_price(distance_km: float) -> dict:
-    """Calculate fair and transparent delivery pricing"""
-    base_price = 9.00  # R$ 9,00 minimum
+    """Calculate delivery pricing with new SrBoy rules"""
+    base_price = 10.00  # R$ 10,00 base
     additional_price = 0.0
-    
-    if distance_km > 4:
-        additional_km = distance_km - 4
-        additional_price = additional_km * 2.50  # R$ 2,50 per km after 4th km
-    
-    total_price = base_price + additional_price
     platform_fee = 2.00  # Fixed platform fee
-    motoboy_earning = total_price - platform_fee
+    
+    if distance_km <= 4:
+        # Up to 4km: R$ 10,00 base, motoboy gets R$ 8,00 (R$ 10 - R$ 2 fee)
+        total_price = base_price
+        motoboy_earnings = base_price - platform_fee  # R$ 8,00
+    else:
+        # Above 4km: R$ 8,00 + R$ 2,00 per km, motoboy gets full amount
+        motoboy_base = 8.00
+        additional_km = distance_km
+        additional_price = additional_km * 2.00  # R$ 2,00 per km
+        total_price = base_price + additional_price  # For lojista
+        motoboy_earnings = motoboy_base + additional_price  # Motoboy gets full calculation
     
     return {
         "base_price": base_price,
         "additional_price": additional_price,
         "total_price": total_price,
         "platform_fee": platform_fee,
-        "motoboy_earning": motoboy_earning,
+        "motoboy_earnings": motoboy_earnings,
         "distance_km": round(distance_km, 2)
     }
+
+def calculate_waiting_fee(waiting_minutes: int) -> float:
+    """Calculate waiting fee: R$ 1,00 per minute after 10 minutes"""
+    if waiting_minutes <= 10:
+        return 0.0
+    return (waiting_minutes - 10) * 1.00
 
 def calculate_distance(point1: dict, point2: dict) -> float:
     """Calculate distance between two points using geopy"""
@@ -137,7 +181,6 @@ def calculate_distance(point1: dict, point2: dict) -> float:
 
 def find_best_motoboy(delivery: dict) -> Optional[dict]:
     """Intelligent matching based on ranking and proximity"""
-    # Get available motoboys in the pickup city
     pickup_city = delivery['pickup_address'].get('city', '')
     
     available_motoboys = list(users_collection.find({
@@ -149,21 +192,18 @@ def find_best_motoboy(delivery: dict) -> Optional[dict]:
     if not available_motoboys:
         return None
     
-    # Calculate scores for each motoboy
     candidates = []
     for motoboy in available_motoboys:
         if not motoboy.get('current_location'):
             continue
             
-        # Distance to pickup
         distance_to_pickup = calculate_distance(
             motoboy['current_location'], 
             delivery['pickup_address']
         )
         
-        # Weighted score: 70% ranking, 30% proximity
         ranking_score = motoboy.get('ranking_score', 100)
-        proximity_score = max(0, 100 - (distance_to_pickup * 10))  # Closer = higher score
+        proximity_score = max(0, 100 - (distance_to_pickup * 10))
         
         weighted_score = (ranking_score * 0.7) + (proximity_score * 0.3)
         
@@ -174,56 +214,85 @@ def find_best_motoboy(delivery: dict) -> Optional[dict]:
             "ranking_score": ranking_score
         })
     
-    # Sort by weighted score (highest first)
     candidates.sort(key=lambda x: x['weighted_score'], reverse=True)
-    
     return candidates[0] if candidates else None
+
+def create_delivery_receipt(delivery: dict, lojista: dict, motoboy: dict) -> dict:
+    """Create comprehensive delivery receipt"""
+    receipt_data = DeliveryReceipt(
+        delivery_id=delivery["id"],
+        loja_id=delivery["lojista_id"],
+        motoboy_id=delivery["motoboy_id"],
+        loja_name=lojista.get("fantasy_name", lojista.get("name")),
+        motoboy_name=motoboy["name"],
+        motoboy_info={
+            "name": motoboy["name"],
+            "moto_model": motoboy.get("moto_model", "N/A"),
+            "moto_color": motoboy.get("moto_color", "N/A"),
+            "license_plate": motoboy.get("license_plate", "N/A")
+        },
+        recipient_info=delivery["recipient_info"],
+        product_description=delivery.get("product_description", delivery.get("description", "N/A")),
+        pickup_confirmed_at=delivery["pickup_confirmed_at"],
+        delivered_at=delivery["delivered_at"],
+        pickup_address=delivery["pickup_address"],
+        delivery_address=delivery["delivery_address"],
+        distance_km=delivery["distance_km"],
+        base_price=delivery["base_price"],
+        additional_price=delivery["additional_price"],
+        waiting_fee=delivery["waiting_fee"],
+        platform_fee=delivery["platform_fee"],
+        total_price=delivery["total_price"],
+        motoboy_earnings=delivery["motoboy_earnings"]
+    ).dict()
+    
+    delivery_receipts_collection.insert_one(receipt_data)
+    receipt_data.pop("_id", None)
+    return receipt_data
 
 # API Endpoints
 @app.get("/api/health")
 async def health_check():
-    return {"status": "healthy", "service": "Super Boy Delivery API"}
+    return {"status": "healthy", "service": "SrBoy Delivery API v2.0", "new_features": ["waiting_fees", "digital_receipts", "enhanced_pricing"]}
 
 @app.post("/api/auth/google")
 async def google_auth(auth_data: dict):
     """Google OAuth authentication - prepared for integration"""
-    # TODO: Integrate with Google OAuth when credentials are provided
-    # For now, create demo user for development
-    
-    email = auth_data.get('email', 'demo@superboy.com')
+    email = auth_data.get('email', 'demo@srboy.com')
     name = auth_data.get('name', 'Demo User')
     user_type = auth_data.get('user_type', 'motoboy')
     
-    # Check if user exists
     existing_user = users_collection.find_one({"email": email})
     
     if existing_user:
         user_data = existing_user
     else:
-        # Create new user
         user_data = User(
             email=email,
             name=name,
             user_type=user_type
         ).dict()
         
-        # Add type-specific defaults
         if user_type == "motoboy":
             user_data.update({
                 "ranking_score": 100,
                 "total_deliveries": 0,
                 "success_rate": 0.0,
                 "is_available": True,
-                "base_city": "São Roque"  # Default city
+                "base_city": "São Roque",
+                "wallet_balance": 0.0,
+                "moto_model": "Honda CG 160",
+                "moto_color": "Vermelha",
+                "license_plate": "ABC-1234"
             })
         elif user_type == "lojista":
             user_data.update({
-                "wallet_balance": 100.0  # Demo balance
+                "loja_wallet_balance": 150.0,
+                "fantasy_name": f"Loja {name}"
             })
         
         users_collection.insert_one(user_data)
     
-    # Create JWT token
     token_data = {
         "user_id": user_data["id"],
         "email": user_data["email"],
@@ -241,7 +310,7 @@ async def google_auth(auth_data: dict):
             "name": user_data["name"],
             "user_type": user_data["user_type"],
             "ranking_score": user_data.get("ranking_score"),
-            "wallet_balance": user_data.get("wallet_balance")
+            "wallet_balance": user_data.get("wallet_balance", user_data.get("loja_wallet_balance", 0))
         }
     }
 
@@ -257,7 +326,6 @@ async def get_profile(credentials: HTTPAuthorizationCredentials = Depends(securi
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
-        # Remove sensitive data
         user.pop("_id", None)
         user.pop("device_info", None)
         
@@ -269,18 +337,16 @@ async def get_profile(credentials: HTTPAuthorizationCredentials = Depends(securi
 
 @app.post("/api/deliveries")
 async def create_delivery(delivery_data: CreateDelivery, credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Create new delivery request - Lojista only"""
+    """Create new delivery request with enhanced SrBoy features"""
     try:
         token = credentials.credentials
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
         user_id = payload["user_id"]
         
-        # Verify user is lojista
         user = users_collection.find_one({"id": user_id, "user_type": "lojista"})
         if not user:
             raise HTTPException(status_code=403, detail="Only lojistas can create deliveries")
         
-        # Calculate distance and pricing
         distance_km = calculate_distance(
             delivery_data.pickup_address,
             delivery_data.delivery_address
@@ -289,30 +355,29 @@ async def create_delivery(delivery_data: CreateDelivery, credentials: HTTPAuthor
         pricing = calculate_delivery_price(distance_km)
         
         # Check wallet balance
-        if user.get('wallet_balance', 0) < pricing['total_price']:
-            raise HTTPException(status_code=400, detail="Insufficient wallet balance")
+        current_balance = user.get('loja_wallet_balance', 0)
+        if current_balance < pricing['total_price']:
+            raise HTTPException(status_code=400, detail=f"Saldo insuficiente. Necessário: R$ {pricing['total_price']:.2f}, Disponível: R$ {current_balance:.2f}")
         
-        # Create delivery
         delivery = Delivery(
             lojista_id=user_id,
             pickup_address=delivery_data.pickup_address,
             delivery_address=delivery_data.delivery_address,
+            recipient_info=delivery_data.recipient_info,
             distance_km=distance_km,
             additional_price=pricing['additional_price'],
             total_price=pricing['total_price'],
-            description=delivery_data.description
+            motoboy_earnings=pricing['motoboy_earnings'],
+            description=delivery_data.description,
+            product_description=delivery_data.product_description
         ).dict()
         
         deliveries_collection.insert_one(delivery)
-        
-        # Remove MongoDB _id for JSON serialization
         delivery.pop("_id", None)
         
-        # Try to match with best motoboy
         best_match = find_best_motoboy(delivery)
         
         if best_match:
-            # Update delivery with matched motoboy
             deliveries_collection.update_one(
                 {"id": delivery["id"]},
                 {
@@ -327,7 +392,7 @@ async def create_delivery(delivery_data: CreateDelivery, credentials: HTTPAuthor
             # Deduct from lojista wallet
             users_collection.update_one(
                 {"id": user_id},
-                {"$inc": {"wallet_balance": -pricing['total_price']}}
+                {"$inc": {"loja_wallet_balance": -pricing['total_price']}}
             )
             
             delivery["motoboy_id"] = best_match["motoboy"]["id"]
@@ -338,6 +403,11 @@ async def create_delivery(delivery_data: CreateDelivery, credentials: HTTPAuthor
                 "matched_motoboy": {
                     "id": best_match["motoboy"]["id"],
                     "name": best_match["motoboy"]["name"],
+                    "moto_info": {
+                        "model": best_match["motoboy"].get("moto_model", "N/A"),
+                        "color": best_match["motoboy"].get("moto_color", "N/A"),
+                        "plate": best_match["motoboy"].get("license_plate", "N/A")
+                    },
                     "ranking_score": best_match["ranking_score"],
                     "distance_to_pickup": round(best_match["distance_to_pickup"], 2)
                 },
@@ -347,7 +417,124 @@ async def create_delivery(delivery_data: CreateDelivery, credentials: HTTPAuthor
         return {
             "delivery": delivery,
             "pricing": pricing,
-            "message": "Delivery created, searching for available motoboy..."
+            "message": "Entrega criada, procurando motoboy disponível..."
+        }
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.put("/api/deliveries/{delivery_id}/status")
+async def update_delivery_status(delivery_id: str, status_data: dict, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Update delivery status with enhanced workflow"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload["user_id"]
+        user_type = payload["user_type"]
+        
+        new_status = status_data.get("status")
+        allowed_statuses = ["pickup_confirmed", "in_transit", "waiting", "delivered", "cancelled", "client_not_found"]
+        
+        if new_status not in allowed_statuses:
+            raise HTTPException(status_code=400, detail="Invalid status")
+        
+        delivery = deliveries_collection.find_one({"id": delivery_id})
+        if not delivery:
+            raise HTTPException(status_code=404, detail="Delivery not found")
+        
+        # Check permissions
+        if user_type == "motoboy" and delivery.get("motoboy_id") != user_id:
+            raise HTTPException(status_code=403, detail="Not your delivery")
+        
+        update_data = {"status": new_status}
+        current_time = datetime.now()
+        
+        if new_status == "pickup_confirmed":
+            update_data["pickup_confirmed_at"] = current_time
+        elif new_status == "in_transit":
+            update_data["delivery_started_at"] = current_time
+        elif new_status == "waiting":
+            update_data["waiting_started_at"] = current_time
+        elif new_status == "delivered":
+            update_data["delivered_at"] = current_time
+            
+            # Update motoboy stats and wallet
+            motoboy_earnings = delivery.get("motoboy_earnings", 0) + delivery.get("waiting_fee", 0)
+            users_collection.update_one(
+                {"id": delivery["motoboy_id"]},
+                {
+                    "$inc": {
+                        "total_deliveries": 1,
+                        "wallet_balance": motoboy_earnings
+                    }
+                }
+            )
+            
+            # Create digital receipt
+            lojista = users_collection.find_one({"id": delivery["lojista_id"]})
+            motoboy = users_collection.find_one({"id": delivery["motoboy_id"]})
+            if lojista and motoboy:
+                receipt = create_delivery_receipt(delivery, lojista, motoboy)
+                update_data["receipt_id"] = receipt["id"]
+        
+        deliveries_collection.update_one(
+            {"id": delivery_id},
+            {"$set": update_data}
+        )
+        
+        return {"message": f"Status atualizado para: {new_status}"}
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.put("/api/deliveries/{delivery_id}/waiting")
+async def update_waiting_time(delivery_id: str, waiting_data: WaitingUpdate, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Update waiting time and calculate additional fees"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload["user_id"]
+        user_type = payload["user_type"]
+        
+        if user_type != "motoboy":
+            raise HTTPException(status_code=403, detail="Only motoboys can update waiting time")
+        
+        delivery = deliveries_collection.find_one({"id": delivery_id})
+        if not delivery or delivery.get("motoboy_id") != user_id:
+            raise HTTPException(status_code=403, detail="Delivery not found or not yours")
+        
+        waiting_fee = calculate_waiting_fee(waiting_data.waiting_minutes)
+        new_total = delivery["total_price"] + waiting_fee
+        new_motoboy_earnings = delivery["motoboy_earnings"] + waiting_fee
+        
+        deliveries_collection.update_one(
+            {"id": delivery_id},
+            {
+                "$set": {
+                    "waiting_minutes": waiting_data.waiting_minutes,
+                    "waiting_fee": waiting_fee,
+                    "total_price": new_total,
+                    "motoboy_earnings": new_motoboy_earnings
+                }
+            }
+        )
+        
+        # Update lojista balance for additional waiting fee
+        if waiting_fee > 0:
+            users_collection.update_one(
+                {"id": delivery["lojista_id"]},
+                {"$inc": {"loja_wallet_balance": -waiting_fee}}
+            )
+        
+        return {
+            "message": "Tempo de espera atualizado",
+            "waiting_minutes": waiting_data.waiting_minutes,
+            "waiting_fee": waiting_fee,
+            "new_total": new_total
         }
         
     except jwt.ExpiredSignatureError:
@@ -364,17 +551,15 @@ async def get_deliveries(credentials: HTTPAuthorizationCredentials = Depends(sec
         user_id = payload["user_id"]
         user_type = payload["user_type"]
         
-        # Query based on user type
         if user_type == "lojista":
             query = {"lojista_id": user_id}
         elif user_type == "motoboy":
             query = {"motoboy_id": user_id}
-        else:  # admin
+        else:
             query = {}
         
         deliveries = list(deliveries_collection.find(query).sort("created_at", -1).limit(50))
         
-        # Remove MongoDB _id
         for delivery in deliveries:
             delivery.pop("_id", None)
         
@@ -385,47 +570,19 @@ async def get_deliveries(credentials: HTTPAuthorizationCredentials = Depends(sec
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-@app.put("/api/deliveries/{delivery_id}/status")
-async def update_delivery_status(delivery_id: str, status_data: dict, credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Update delivery status"""
+@app.get("/api/deliveries/{delivery_id}/receipt")
+async def get_delivery_receipt(delivery_id: str, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get digital delivery receipt"""
     try:
         token = credentials.credentials
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-        user_id = payload["user_id"]
-        user_type = payload["user_type"]
         
-        new_status = status_data.get("status")
-        allowed_statuses = ["in_progress", "completed", "cancelled"]
+        receipt = delivery_receipts_collection.find_one({"delivery_id": delivery_id})
+        if not receipt:
+            raise HTTPException(status_code=404, detail="Receipt not found")
         
-        if new_status not in allowed_statuses:
-            raise HTTPException(status_code=400, detail="Invalid status")
-        
-        # Get delivery
-        delivery = deliveries_collection.find_one({"id": delivery_id})
-        if not delivery:
-            raise HTTPException(status_code=404, detail="Delivery not found")
-        
-        # Check permissions
-        if user_type == "motoboy" and delivery.get("motoboy_id") != user_id:
-            raise HTTPException(status_code=403, detail="Not your delivery")
-        
-        # Update delivery
-        update_data = {"status": new_status}
-        if new_status == "completed":
-            update_data["completed_at"] = datetime.now()
-            
-            # Update motoboy stats
-            users_collection.update_one(
-                {"id": delivery["motoboy_id"]},
-                {"$inc": {"total_deliveries": 1}}
-            )
-        
-        deliveries_collection.update_one(
-            {"id": delivery_id},
-            {"$set": update_data}
-        )
-        
-        return {"message": f"Delivery status updated to {new_status}"}
+        receipt.pop("_id", None)
+        return {"receipt": receipt}
         
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
@@ -439,7 +596,7 @@ async def get_cities():
 
 @app.get("/api/pricing/calculate")
 async def calculate_pricing(distance: float):
-    """Calculate delivery pricing"""
+    """Calculate delivery pricing with new SrBoy rules"""
     if distance <= 0:
         raise HTTPException(status_code=400, detail="Invalid distance")
     
@@ -494,7 +651,8 @@ async def get_rankings(city: Optional[str] = None):
             "ranking_score": motoboy.get("ranking_score", 100),
             "total_deliveries": motoboy.get("total_deliveries", 0),
             "success_rate": motoboy.get("success_rate", 0.0),
-            "base_city": motoboy.get("base_city", "")
+            "base_city": motoboy.get("base_city", ""),
+            "wallet_balance": motoboy.get("wallet_balance", 0.0)
         })
     
     return {"rankings": rankings}

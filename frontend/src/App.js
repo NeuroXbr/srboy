@@ -24,7 +24,14 @@ import {
   Bike as Motorcycle,
   Store,
   Award,
-  Navigation
+  Navigation,
+  Receipt,
+  Timer,
+  CheckCircle,
+  AlertCircle,
+  FileText,
+  Wallet,
+  Phone
 } from 'lucide-react';
 
 const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
@@ -99,9 +106,8 @@ function App() {
   const handleGoogleAuth = async (userType) => {
     setLoading(true);
     try {
-      // Demo authentication - replace with Google OAuth integration
       const authData = {
-        email: `demo.${userType}@superboy.com`,
+        email: `demo.${userType}@srboy.com`,
         name: `Demo ${userType.charAt(0).toUpperCase() + userType.slice(1)}`,
         user_type: userType
       };
@@ -147,7 +153,8 @@ function App() {
 
       if (response.ok) {
         const data = await response.json();
-        fetchDeliveries(); // Refresh deliveries
+        fetchDeliveries();
+        fetchUserProfile(); // Update wallet balance
         return data;
       } else {
         const error = await response.json();
@@ -171,9 +178,30 @@ function App() {
 
       if (response.ok) {
         fetchDeliveries();
+        fetchUserProfile(); // Update wallet balance
       }
     } catch (error) {
       console.error('Error updating status:', error);
+    }
+  };
+
+  const updateWaitingTime = async (deliveryId, waitingMinutes) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/deliveries/${deliveryId}/waiting`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ waiting_minutes: waitingMinutes })
+      });
+
+      if (response.ok) {
+        fetchDeliveries();
+        fetchUserProfile();
+      }
+    } catch (error) {
+      console.error('Error updating waiting time:', error);
     }
   };
 
@@ -181,9 +209,12 @@ function App() {
     const colors = {
       pending: 'bg-yellow-100 text-yellow-800',
       matched: 'bg-blue-100 text-blue-800',
-      in_progress: 'bg-purple-100 text-purple-800',
-      completed: 'bg-green-100 text-green-800',
-      cancelled: 'bg-red-100 text-red-800'
+      pickup_confirmed: 'bg-indigo-100 text-indigo-800',
+      in_transit: 'bg-purple-100 text-purple-800',
+      waiting: 'bg-orange-100 text-orange-800',
+      delivered: 'bg-green-100 text-green-800',
+      cancelled: 'bg-red-100 text-red-800',
+      client_not_found: 'bg-gray-100 text-gray-800'
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
@@ -192,9 +223,12 @@ function App() {
     const texts = {
       pending: 'Pendente',
       matched: 'Pareado',
-      in_progress: 'Em Andamento',
-      completed: 'Concluído',
-      cancelled: 'Cancelado'
+      pickup_confirmed: 'Coleta Confirmada',
+      in_transit: 'Em Trânsito',
+      waiting: 'Aguardando Cliente',
+      delivered: 'Entregue',
+      cancelled: 'Cancelado',
+      client_not_found: 'Cliente Não Encontrado'
     };
     return texts[status] || status;
   };
@@ -213,14 +247,14 @@ function App() {
                 </div>
               </div>
               <h1 className="text-6xl font-bold text-white mb-6">
-                Super Boy
+                SrBoy
               </h1>
               <p className="text-xl text-slate-300 mb-8 max-w-3xl mx-auto">
                 Sistema inteligente de entregas regionais baseado em <span className="text-blue-400 font-semibold">mérito e transparência</span>.
-                Conectando lojistas e motoboys de forma justa e eficiente.
+                Preços justos com <span className="text-green-400 font-semibold">R$ 10,00 base</span> e taxa fixa de <span className="text-purple-400 font-semibold">R$ 2,00</span>.
               </p>
               
-              {/* Key Features */}
+              {/* Updated Key Features */}
               <div className="grid md:grid-cols-3 gap-6 mb-12 max-w-4xl mx-auto">
                 <div className="bg-slate-800/50 backdrop-blur-sm p-6 rounded-xl border border-slate-700">
                   <Award className="h-10 w-10 text-blue-400 mx-auto mb-4" />
@@ -230,12 +264,26 @@ function App() {
                 <div className="bg-slate-800/50 backdrop-blur-sm p-6 rounded-xl border border-slate-700">
                   <CreditCard className="h-10 w-10 text-green-400 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-white mb-2">Preços Justos</h3>
-                  <p className="text-slate-400 text-sm">R$ 9,00 + R$ 2,50/km. Taxa fixa de R$ 2,00</p>
+                  <p className="text-slate-400 text-sm">R$ 10,00 base + R$ 2,00/km. Taxa fixa de R$ 2,00</p>
                 </div>
                 <div className="bg-slate-800/50 backdrop-blur-sm p-6 rounded-xl border border-slate-700">
-                  <Shield className="h-10 w-10 text-purple-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-white mb-2">Segurança Ética</h3>
-                  <p className="text-slate-400 text-sm">Rastreamento para proteção, não vigilância</p>
+                  <Timer className="h-10 w-10 text-orange-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-white mb-2">Sistema de Espera</h3>
+                  <p className="text-slate-400 text-sm">10 min grátis, depois R$ 1,00/min</p>
+                </div>
+              </div>
+
+              {/* Additional Features */}
+              <div className="grid md:grid-cols-2 gap-6 mb-12 max-w-3xl mx-auto">
+                <div className="bg-slate-800/30 backdrop-blur-sm p-4 rounded-lg border border-slate-600">
+                  <Receipt className="h-8 w-8 text-cyan-400 mx-auto mb-2" />
+                  <h4 className="text-sm font-semibold text-white mb-1">Comprovante Digital</h4>
+                  <p className="text-slate-400 text-xs">Checkout duplo com informações completas</p>
+                </div>
+                <div className="bg-slate-800/30 backdrop-blur-sm p-4 rounded-lg border border-slate-600">
+                  <Shield className="h-8 w-8 text-emerald-400 mx-auto mb-2" />
+                  <h4 className="text-sm font-semibold text-white mb-1">Segurança Avançada</h4>
+                  <p className="text-slate-400 text-xs">Dados do motoboy e cliente protegidos</p>
                 </div>
               </div>
 
@@ -294,10 +342,19 @@ function App() {
               <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-2 rounded-lg">
                 <Motorcycle className="h-6 w-6 text-white" />
               </div>
-              <h1 className="text-2xl font-bold text-slate-900">Super Boy</h1>
+              <h1 className="text-2xl font-bold text-slate-900">SrBoy</h1>
+              <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                v2.0
+              </Badge>
             </div>
             
             <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-slate-500" />
+                <span className="text-sm font-medium text-slate-700">
+                  R$ {((user.wallet_balance || user.loja_wallet_balance) || 0).toFixed(2)}
+                </span>
+              </div>
               <div className="flex items-center gap-2">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={user.photo_url} />
@@ -353,7 +410,7 @@ function App() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-3xl font-bold text-green-600">
-                        R$ {(user.wallet_balance || 0).toFixed(2)}
+                        R$ {(user.loja_wallet_balance || 0).toFixed(2)}
                       </div>
                       <p className="text-sm text-slate-500 mt-1">Disponível para entregas</p>
                     </CardContent>
@@ -389,13 +446,13 @@ function App() {
                   </Card>
                   <Card>
                     <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium text-slate-600">Total de Entregas</CardTitle>
+                      <CardTitle className="text-sm font-medium text-slate-600">Saldo Carteira</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-3xl font-bold text-blue-600">
-                        {user.total_deliveries || 0}
+                      <div className="text-3xl font-bold text-green-600">
+                        R$ {(user.wallet_balance || 0).toFixed(2)}
                       </div>
-                      <p className="text-sm text-slate-500 mt-1">Concluídas com sucesso</p>
+                      <p className="text-sm text-slate-500 mt-1">Disponível para saque</p>
                     </CardContent>
                   </Card>
                 </>
@@ -403,23 +460,51 @@ function App() {
               
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-slate-600">Status</CardTitle>
+                  <CardTitle className="text-sm font-medium text-slate-600">Total de Entregas</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Badge 
-                    className={`${user.user_type === 'motoboy' && user.is_available 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-slate-100 text-slate-800'
-                    }`}
-                  >
-                    {user.user_type === 'motoboy' 
-                      ? (user.is_available ? 'Disponível' : 'Ocupado')
-                      : 'Ativo'
-                    }
-                  </Badge>
+                  <div className="text-3xl font-bold text-indigo-600">
+                    {user.total_deliveries || deliveries.length}
+                  </div>
+                  <p className="text-sm text-slate-500 mt-1">Concluídas com sucesso</p>
                 </CardContent>
               </Card>
             </div>
+
+            {/* New Features Highlight */}
+            <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-blue-800">
+                  <Star className="h-5 w-5" />
+                  Novidades SrBoy v2.0
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="flex items-center gap-3">
+                    <Receipt className="h-8 w-8 text-blue-600" />
+                    <div>
+                      <div className="font-semibold text-blue-800">Comprovante Digital</div>
+                      <div className="text-sm text-blue-600">Checkout duplo completo</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Timer className="h-8 w-8 text-orange-600" />
+                    <div>
+                      <div className="font-semibold text-orange-800">Sistema de Espera</div>
+                      <div className="text-sm text-orange-600">R$ 1,00/min após 10 min</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CreditCard className="h-8 w-8 text-green-600" />
+                    <div>
+                      <div className="font-semibold text-green-800">Preços Atualizados</div>
+                      <div className="text-sm text-green-600">R$ 10,00 base + R$ 2,00/km</div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Recent Activity */}
             <Card>
@@ -449,6 +534,11 @@ function App() {
                             </div>
                             <div className="text-sm text-slate-500">
                               R$ {delivery.total_price.toFixed(2)} • {delivery.distance_km}km
+                              {delivery.waiting_fee > 0 && (
+                                <span className="ml-2 text-orange-600">
+                                  + R$ {delivery.waiting_fee.toFixed(2)} espera
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -485,6 +575,7 @@ function App() {
                         delivery={delivery} 
                         userType={user.user_type}
                         onUpdateStatus={updateDeliveryStatus}
+                        onUpdateWaiting={updateWaitingTime}
                       />
                     ))}
                   </div>
@@ -499,7 +590,7 @@ function App() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Award className="h-5 w-5 text-yellow-500" />
-                  Ranking de Motoboys
+                  Ranking de Motoboys - SrBoy
                 </CardTitle>
                 <p className="text-sm text-slate-600">
                   Sistema transparente baseado em desempenho e confiabilidade
@@ -530,9 +621,15 @@ function App() {
                             </div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="font-semibold text-purple-600">{ranking.ranking_score}</div>
-                          <div className="text-sm text-slate-500">pontos</div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <div className="font-semibold text-purple-600">{ranking.ranking_score}</div>
+                            <div className="text-sm text-slate-500">pontos</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-semibold text-green-600">R$ {ranking.wallet_balance.toFixed(2)}</div>
+                            <div className="text-sm text-slate-500">carteira</div>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -547,12 +644,14 @@ function App() {
   );
 }
 
-// Create Delivery Form Component
+// Enhanced Create Delivery Form Component
 function CreateDeliveryForm({ onCreateDelivery }) {
   const [formData, setFormData] = useState({
     pickup_address: { city: '', address: '', lat: -23.5505, lng: -46.6333 },
     delivery_address: { city: '', address: '', lat: -23.5505, lng: -46.6333 },
-    description: ''
+    recipient_info: { name: '', rg: '', alternative_recipient: '' },
+    description: '',
+    product_description: ''
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -569,7 +668,7 @@ function CreateDeliveryForm({ onCreateDelivery }) {
       setMessage({
         type: 'success',
         text: result.matched_motoboy 
-          ? `Entrega criada! Pareado com ${result.matched_motoboy.name} (Ranking: ${result.matched_motoboy.ranking_score})`
+          ? `Entrega criada! Pareado com ${result.matched_motoboy.name} (${result.matched_motoboy.moto_info.color} ${result.matched_motoboy.moto_info.model} - ${result.matched_motoboy.moto_info.plate})`
           : 'Entrega criada! Procurando motoboy disponível...'
       });
       
@@ -577,7 +676,9 @@ function CreateDeliveryForm({ onCreateDelivery }) {
       setFormData({
         pickup_address: { city: '', address: '', lat: -23.5505, lng: -46.6333 },
         delivery_address: { city: '', address: '', lat: -23.5505, lng: -46.6333 },
-        description: ''
+        recipient_info: { name: '', rg: '', alternative_recipient: '' },
+        description: '',
+        product_description: ''
       });
     } catch (error) {
       setMessage({
@@ -594,8 +695,11 @@ function CreateDeliveryForm({ onCreateDelivery }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Plus className="h-5 w-5" />
-          Criar Nova Entrega
+          Criar Nova Entrega - SrBoy
         </CardTitle>
+        <p className="text-sm text-slate-600">
+          Nova tarifa: R$ 10,00 base + R$ 2,00/km | Taxa de espera: R$ 1,00/min após 10 min
+        </p>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -669,15 +773,67 @@ function CreateDeliveryForm({ onCreateDelivery }) {
             </div>
           </div>
 
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Descrição (opcional)</label>
-            <Textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Detalhes sobre o produto, instruções especiais..."
-              rows={3}
-            />
+          {/* Recipient Information */}
+          <div className="space-y-4">
+            <h3 className="font-medium text-slate-900">Informações do Destinatário</h3>
+            <div className="grid md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nome Completo</label>
+                <Input
+                  value={formData.recipient_info.name}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    recipient_info: { ...formData.recipient_info, name: e.target.value }
+                  })}
+                  placeholder="Nome do destinatário"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">RG</label>
+                <Input
+                  value={formData.recipient_info.rg}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    recipient_info: { ...formData.recipient_info, rg: e.target.value }
+                  })}
+                  placeholder="000.000.000-0"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Autorizado Alternativo (opcional)</label>
+                <Input
+                  value={formData.recipient_info.alternative_recipient}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    recipient_info: { ...formData.recipient_info, alternative_recipient: e.target.value }
+                  })}
+                  placeholder="Nome alternativo"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Product Information */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Descrição do Produto</label>
+              <Input
+                value={formData.product_description}
+                onChange={(e) => setFormData({ ...formData, product_description: e.target.value })}
+                placeholder="Ex: Documento, Remédio, Produto frágil..."
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Observações (opcional)</label>
+              <Input
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Instruções especiais..."
+              />
+            </div>
           </div>
 
           {/* Message */}
@@ -690,7 +846,7 @@ function CreateDeliveryForm({ onCreateDelivery }) {
           )}
 
           <Button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700">
-            {loading ? 'Criando...' : 'Criar Entrega'}
+            {loading ? 'Criando...' : 'Criar Entrega - SrBoy'}
           </Button>
         </form>
       </CardContent>
@@ -698,15 +854,21 @@ function CreateDeliveryForm({ onCreateDelivery }) {
   );
 }
 
-// Delivery Card Component
-function DeliveryCard({ delivery, userType, onUpdateStatus }) {
+// Enhanced Delivery Card Component
+function DeliveryCard({ delivery, userType, onUpdateStatus, onUpdateWaiting }) {
+  const [waitingMinutes, setWaitingMinutes] = useState(delivery.waiting_minutes || 0);
+  const [showWaitingInput, setShowWaitingInput] = useState(false);
+
   const getStatusColor = (status) => {
     const colors = {
       pending: 'bg-yellow-100 text-yellow-800',
       matched: 'bg-blue-100 text-blue-800',
-      in_progress: 'bg-purple-100 text-purple-800',
-      completed: 'bg-green-100 text-green-800',
-      cancelled: 'bg-red-100 text-red-800'
+      pickup_confirmed: 'bg-indigo-100 text-indigo-800',
+      in_transit: 'bg-purple-100 text-purple-800',
+      waiting: 'bg-orange-100 text-orange-800',
+      delivered: 'bg-green-100 text-green-800',
+      cancelled: 'bg-red-100 text-red-800',
+      client_not_found: 'bg-gray-100 text-gray-800'
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
@@ -715,11 +877,19 @@ function DeliveryCard({ delivery, userType, onUpdateStatus }) {
     const texts = {
       pending: 'Pendente',
       matched: 'Pareado',
-      in_progress: 'Em Andamento',
-      completed: 'Concluído',
-      cancelled: 'Cancelado'
+      pickup_confirmed: 'Coleta Confirmada',
+      in_transit: 'Em Trânsito',
+      waiting: 'Aguardando Cliente',
+      delivered: 'Entregue',
+      cancelled: 'Cancelado',
+      client_not_found: 'Cliente Não Encontrado'
     };
     return texts[status] || status;
+  };
+
+  const handleWaitingUpdate = () => {
+    onUpdateWaiting(delivery.id, waitingMinutes);
+    setShowWaitingInput(false);
   };
 
   return (
@@ -754,39 +924,125 @@ function DeliveryCard({ delivery, userType, onUpdateStatus }) {
         </div>
       </div>
 
+      {/* Recipient Information */}
+      {delivery.recipient_info && (
+        <div className="mb-4 p-3 bg-slate-50 rounded-lg">
+          <div className="text-sm font-medium text-slate-700 mb-1">Destinatário</div>
+          <div className="text-sm text-slate-600">
+            {delivery.recipient_info.name} • RG: {delivery.recipient_info.rg}
+            {delivery.recipient_info.alternative_recipient && (
+              <span className="ml-2 text-slate-500">
+                (Alt: {delivery.recipient_info.alternative_recipient})
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Product Information */}
+      {delivery.product_description && (
+        <div className="mb-4">
+          <div className="text-sm font-medium text-slate-700 mb-1">Produto</div>
+          <div className="text-sm text-slate-600">{delivery.product_description}</div>
+        </div>
+      )}
+
+      {/* Pricing Information */}
       <div className="flex items-center justify-between pt-4 border-t border-slate-100">
         <div className="flex items-center gap-4 text-sm text-slate-600">
           <span>{delivery.distance_km}km</span>
           <span>R$ {delivery.total_price.toFixed(2)}</span>
-          {delivery.motoboy_id && (
-            <span className="text-blue-600">Pareado</span>
+          {delivery.waiting_fee > 0 && (
+            <span className="text-orange-600">+ R$ {delivery.waiting_fee.toFixed(2)} espera</span>
+          )}
+          {userType === 'motoboy' && (
+            <span className="text-green-600">Ganho: R$ {(delivery.motoboy_earnings || 0).toFixed(2)}</span>
           )}
         </div>
         
-        {userType === 'motoboy' && delivery.status === 'matched' && (
-          <Button 
-            size="sm" 
-            onClick={() => onUpdateStatus(delivery.id, 'in_progress')}
-            className="bg-purple-600 hover:bg-purple-700"
-          >
-            Iniciar Entrega
-          </Button>
-        )}
-        
-        {userType === 'motoboy' && delivery.status === 'in_progress' && (
-          <Button 
-            size="sm" 
-            onClick={() => onUpdateStatus(delivery.id, 'completed')}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            Concluir
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {/* Motoboy Action Buttons */}
+          {userType === 'motoboy' && delivery.status === 'matched' && (
+            <Button 
+              size="sm" 
+              onClick={() => onUpdateStatus(delivery.id, 'pickup_confirmed')}
+              className="bg-indigo-600 hover:bg-indigo-700"
+            >
+              Confirmar Coleta
+            </Button>
+          )}
+          
+          {userType === 'motoboy' && delivery.status === 'pickup_confirmed' && (
+            <Button 
+              size="sm" 
+              onClick={() => onUpdateStatus(delivery.id, 'in_transit')}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              Iniciar Entrega
+            </Button>
+          )}
+          
+          {userType === 'motoboy' && delivery.status === 'in_transit' && (
+            <>
+              <Button 
+                size="sm" 
+                onClick={() => onUpdateStatus(delivery.id, 'waiting')}
+                className="bg-orange-600 hover:bg-orange-700"
+              >
+                <Timer className="h-4 w-4 mr-1" />
+                Aguardando
+              </Button>
+              <Button 
+                size="sm" 
+                onClick={() => onUpdateStatus(delivery.id, 'delivered')}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <CheckCircle className="h-4 w-4 mr-1" />
+                Entregar
+              </Button>
+            </>
+          )}
+          
+          {userType === 'motoboy' && delivery.status === 'waiting' && (
+            <div className="flex gap-2 items-center">
+              {!showWaitingInput ? (
+                <Button 
+                  size="sm" 
+                  onClick={() => setShowWaitingInput(true)}
+                  className="bg-orange-600 hover:bg-orange-700"
+                >
+                  Atualizar Espera
+                </Button>
+              ) : (
+                <>
+                  <Input
+                    type="number"
+                    value={waitingMinutes}
+                    onChange={(e) => setWaitingMinutes(parseInt(e.target.value) || 0)}
+                    placeholder="Min"
+                    className="w-16 h-8"
+                    min="0"
+                  />
+                  <Button size="sm" onClick={handleWaitingUpdate} className="bg-orange-600 h-8">
+                    OK
+                  </Button>
+                </>
+              )}
+              <Button 
+                size="sm" 
+                onClick={() => onUpdateStatus(delivery.id, 'delivered')}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                Entregar
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
       {delivery.description && (
         <div className="mt-4 pt-4 border-t border-slate-100">
-          <div className="text-sm font-medium text-slate-700 mb-1">Descrição</div>
+          <div className="text-sm font-medium text-slate-700 mb-1">Observações</div>
           <div className="text-sm text-slate-600">{delivery.description}</div>
         </div>
       )}
