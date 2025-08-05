@@ -1703,6 +1703,11 @@ function CreateDeliveryForm({ onCreateDelivery }) {
 function DeliveryCard({ delivery, userType, onUpdateStatus, onUpdateWaiting }) {
   const [waitingMinutes, setWaitingMinutes] = useState(delivery.waiting_minutes || 0);
   const [showWaitingInput, setShowWaitingInput] = useState(false);
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pin, setPin] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [pinLoading, setPinLoading] = useState(false);
+  const [pinAttempts, setPinAttempts] = useState(0);
 
   const getStatusColor = (status) => {
     const colors = {
