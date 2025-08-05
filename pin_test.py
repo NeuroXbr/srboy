@@ -213,7 +213,7 @@ class PINSystemTester:
             return False
 
         # First, let's make an incorrect PIN attempt to change pin_tentativas from 0
-        pin_data = {"pin": "WRONG"}
+        pin_data = {"pin": "XXXX"}  # 4 characters, but wrong PIN
         pin_success, pin_status, pin_response = self.make_request('POST', f'/api/deliveries/{self.test_delivery_id}/validate-pin', pin_data, self.motoboy_token)
         
         print(f"   DEBUG: PIN validation response - Status: {pin_status}, Response: {pin_response}")
