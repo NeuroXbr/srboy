@@ -618,7 +618,7 @@ function App() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 bg-slate-100">
+          <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-4 bg-slate-100">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
               Dashboard
@@ -626,6 +626,10 @@ function App() {
             <TabsTrigger value="deliveries" className="flex items-center gap-2">
               <Truck className="h-4 w-4" />
               Entregas
+            </TabsTrigger>
+            <TabsTrigger value="social" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Social
             </TabsTrigger>
             <TabsTrigger value="rankings" className="flex items-center gap-2">
               <Star className="h-4 w-4" />
