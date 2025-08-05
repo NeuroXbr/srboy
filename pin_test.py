@@ -95,7 +95,7 @@ class PINSystemTester:
             print(f"   ❌ Motoboy authentication failed: {status} - {data}")
             return False
         
-        # Update motoboy location for delivery matching
+        # Update motoboy location but keep them unavailable initially
         location_data = {"lat": -23.5320, "lng": -47.1360}
         success, status, data = self.make_request('PUT', '/api/motoboy/location', location_data, self.motoboy_token)
         if success:
