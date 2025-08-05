@@ -245,6 +245,14 @@ function App() {
     return texts[status] || status;
   };
 
+  if (!user && showRegistration) {
+    if (registrationType === 'motoboy') {
+      return <MotoboyRegistration onBack={handleBackToLogin} onRegister={handleGoogleAuth} />;
+    } else if (registrationType === 'lojista') {
+      return <LojistaRegistration onBack={handleBackToLogin} onRegister={handleGoogleAuth} />;
+    }
+  }
+
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
