@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Test the new PIN confirmation system for SrBoy delivery app including PIN generation when motoboy accepts delivery, PIN validation with correct/incorrect attempts and blocking after 3 attempts, delivery finalization requiring PIN validation, and verification of PIN data structure (8-digit alphanumeric PIN with 4-digit confirmation)."
+user_problem_statement: "Test all new administrative endpoints for SrBoy delivery app including admin login, dashboard statistics, user management with filters, delivery management, admin actions (suspend/activate/flag), analytics with performance metrics, and financial reports with city breakdown and payment methods."
 
 backend:
   - task: "PIN generation on delivery acceptance"
