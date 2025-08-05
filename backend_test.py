@@ -497,7 +497,7 @@ class SrBoyAPITester:
             return False
 
         user_id = self.motoboy_user['id']
-        success, status, data = self.make_request('GET', f'/api/security/analyze/{user_id}', token=self.motoboy_token, 403)
+        success, status, data = self.make_request('GET', f'/api/security/analyze/{user_id}', token=self.motoboy_token, expected_status=403)
         
         if status == 403 and "Admin access required" in data.get('detail', ''):
             success = True
