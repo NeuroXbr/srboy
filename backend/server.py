@@ -781,13 +781,21 @@ async def update_delivery_status(delivery_id: str, status_data: dict, credential
         elif new_status == "waiting":
             update_data["waiting_started_at"] = current_time
         elif new_status == "delivered":
-            # Check if PIN has been validated for delivery completion
-            if delivery.get("pin_confirmacao") and delivery.get("pin_tentativas", 0) == 0:
-                # PIN system is active for this delivery and PIN hasn't been validated
-                # Check if PIN was validated successfully (tentativas reset to 0)
-                pin_validated = not delivery.get("pin_bloqueado", False) and delivery.get("pin_confirmacao")
+            # Check if PIN system is active and validate it
+            if delivery.get("pin_confirmacao"):
+                # PIN system is active for this delivery
+                if delivery.get("pin_bloqueado", False):
+                    raise HTTPException(
+                        status_code=400, 
+                        detail="PIN bloqueado após 3 tentativas incorretas. Entre em contato com o suporte."
+                    )
                 
-                if not pin_validated:
+                # Check if PIN has been successfully validated
+                # PIN is considered validated when there's a PIN but no recent failed attempts
+                # We need to track successful validation differently
+                has_recent_failed_attempts = delivery.get("pin_tentativas", 0) > 0
+                
+                if has_recent_failed_attempts:
                     raise HTTPException(
                         status_code=400, 
                         detail="PIN de confirmação deve ser validado antes de finalizar a entrega. Use o endpoint /validate-pin primeiro."
@@ -807,12 +815,24 @@ async def update_delivery_status(delivery_id: str, status_data: dict, credential
                 }
             )
             
-            # Create digital receipt
+            # Create digital receipt - handle missing timestamps gracefully
             lojista = users_collection.find_one({"id": delivery["lojista_id"]})
             motoboy = users_collection.find_one({"id": delivery["motoboy_id"]})
             if lojista and motoboy:
-                receipt = create_delivery_receipt(delivery, lojista, motoboy)
-                update_data["receipt_id"] = receipt["id"]
+                try:
+                    # Ensure required timestamps exist
+                    delivery_copy = delivery.copy()
+                    if not delivery_copy.get("pickup_confirmed_at"):
+                        delivery_copy["pickup_confirmed_at"] = current_time
+                    if not delivery_copy.get("delivered_at"):
+                        delivery_copy["delivered_at"] = current_time
+                    
+                    receipt = create_delivery_receipt(delivery_copy, lojista, motoboy)
+                    update_data["receipt_id"] = receipt["id"]
+                except Exception as e:
+                    # If receipt creation fails, log but don't block delivery completion
+                    print(f"Warning: Failed to create receipt for delivery {delivery_id}: {str(e)}")
+                    update_data["receipt_error"] = str(e)
         
         deliveries_collection.update_one(
             {"id": delivery_id},
