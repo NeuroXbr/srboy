@@ -145,16 +145,44 @@ class PINSystemTester:
         return success
 
     def test_accept_delivery_generates_pin(self):
-        """Step 2: Motoboy accepts delivery and PIN is generated"""
+        """Step 2: Check if delivery was auto-matched and PIN generated, or manually accept"""
         if not self.motoboy_token or not self.test_delivery_id:
             self.log_test("Accept Delivery - PIN Generation", False, "No motoboy token or delivery ID available")
             return False
 
+        # First, check if delivery was already matched (auto-matching)
+        success, status, data = self.make_request('GET', '/api/deliveries', token=self.motoboy_token)
+        
+        if success:
+            # Find our delivery
+            test_delivery = None
+            for delivery in data.get('deliveries', []):
+                if delivery['id'] == self.test_delivery_id:
+                    test_delivery = delivery
+                    break
+            
+            if test_delivery and test_delivery.get('status') == 'matched' and test_delivery.get('pin_confirmacao'):
+                # Delivery was auto-matched and PIN was generated
+                self.generated_pin = test_delivery['pin_confirmacao']
+                details = f"Delivery auto-matched with PIN: {self.generated_pin} (4 digits)"
+                
+                # Verify PIN is 4 characters
+                if len(self.generated_pin) == 4:
+                    details += " ✓ PIN length correct"
+                    success = True
+                else:
+                    success = False
+                    details += f" ✗ PIN length incorrect: {len(self.generated_pin)} chars"
+                
+                self.log_test("Accept Delivery - PIN Generation", success, details)
+                return success
+        
+        # If not auto-matched, try manual accept
         success, status, data = self.make_request('POST', f'/api/deliveries/{self.test_delivery_id}/accept', token=self.motoboy_token)
         
         if success and 'pin_confirmacao' in data:
             self.generated_pin = data['pin_confirmacao']
-            details = f"Delivery accepted - PIN generated: {self.generated_pin} (4 digits)"
+            details = f"Delivery manually accepted - PIN generated: {self.generated_pin} (4 digits)"
             
             # Verify PIN is 4 characters
             if len(self.generated_pin) == 4:
