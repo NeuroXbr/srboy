@@ -2793,7 +2793,7 @@ function LojistaRegistration({ onBack, onRegister }) {
                   </div>
 
                   <div className="bg-purple-900/50 p-6 rounded-lg border border-purple-700">
-                    <h3 className="text-white font-semibold mb-3">💼 Como funciona para lojistas no SrBoy:</h3>
+                    <h3 className="text-white font-semibold mb-3">💼 Como funciona para lojistas no <span translate="no">SrBoy</span>:</h3>
                     <ul className="text-purple-200 text-sm space-y-2">
                       <li>• <strong>Cadastro gratuito</strong> - sem mensalidades ou taxas de adesão</li>
                       <li>• <strong>Recarregue sua carteira</strong> via PIX ou cartão (Mercado Pago)</li>
