@@ -781,6 +781,18 @@ async def update_delivery_status(delivery_id: str, status_data: dict, credential
         elif new_status == "waiting":
             update_data["waiting_started_at"] = current_time
         elif new_status == "delivered":
+            # Check if PIN has been validated for delivery completion
+            if delivery.get("pin_confirmacao") and delivery.get("pin_tentativas", 0) == 0:
+                # PIN system is active for this delivery and PIN hasn't been validated
+                # Check if PIN was validated successfully (tentativas reset to 0)
+                pin_validated = not delivery.get("pin_bloqueado", False) and delivery.get("pin_confirmacao")
+                
+                if not pin_validated:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail="PIN de confirmação deve ser validado antes de finalizar a entrega. Use o endpoint /validate-pin primeiro."
+                    )
+            
             update_data["delivered_at"] = current_time
             
             # Update motoboy stats and wallet
