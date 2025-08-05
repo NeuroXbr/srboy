@@ -612,6 +612,364 @@ class SrBoyAPITester:
         self.log_test("Chat Moderation Profanity", success, details)
         return success
 
+    # ========================================
+    # PIN SYSTEM TESTS - CORRECTED VERSION
+    # ========================================
+    
+    def test_create_delivery_for_pin_testing(self):
+        """Create a delivery for PIN system testing"""
+        if not self.lojista_token:
+            self.log_test("Create Delivery for PIN Testing", False, "No lojista token available")
+            return False, None
+
+        delivery_data = {
+            "pickup_address": {
+                "street": "Rua das Flores, 123",
+                "city": "São Roque",
+                "state": "SP",
+                "zipcode": "18130-000",
+                "lat": -23.5320,
+                "lng": -47.1360
+            },
+            "delivery_address": {
+                "street": "Av. Principal, 456",
+                "city": "São Roque", 
+                "state": "SP",
+                "zipcode": "18130-100",
+                "lat": -23.5450,
+                "lng": -47.1680
+            },
+            "recipient_info": {
+                "name": "João Silva Santos",
+                "rg": "12.345.678-9",
+                "alternative_recipient": "Maria Silva Santos"
+            },
+            "description": "Medicamentos da farmácia",
+            "product_description": "Remédios para pressão alta - 2 caixas"
+        }
+        
+        success, status, data = self.make_request('POST', '/api/deliveries', delivery_data, self.lojista_token)
+        
+        if success and 'delivery' in data:
+            delivery_id = data['delivery']['id']
+            details = f"Delivery created successfully - ID: {delivery_id}, Status: {data['delivery']['status']}"
+            self.log_test("Create Delivery for PIN Testing", True, details)
+            return True, delivery_id
+        else:
+            details = f"Status: {status}, Response: {data}"
+            self.log_test("Create Delivery for PIN Testing", False, details)
+            return False, None
+
+    def test_pin_generation_on_accept(self):
+        """Test PIN generation when motoboy accepts delivery"""
+        if not self.motoboy_token:
+            self.log_test("PIN Generation on Accept", False, "No motoboy token available")
+            return False, None
+
+        # Create delivery first
+        delivery_created, delivery_id = self.test_create_delivery_for_pin_testing()
+        if not delivery_created:
+            return False, None
+
+        # Accept delivery (should generate PIN)
+        success, status, data = self.make_request('POST', f'/api/deliveries/{delivery_id}/accept', token=self.motoboy_token)
+        
+        if success and 'pin_confirmacao' in data:
+            pin_confirmacao = data['pin_confirmacao']
+            if len(pin_confirmacao) == 4:
+                details = f"PIN generated successfully - Confirmation PIN: {pin_confirmacao} (4 digits)"
+                self.log_test("PIN Generation on Accept", True, details)
+                return True, delivery_id
+            else:
+                details = f"PIN format incorrect - Expected 4 digits, got: {pin_confirmacao}"
+                self.log_test("PIN Generation on Accept", False, details)
+                return False, delivery_id
+        else:
+            details = f"Status: {status}, Response: {data}"
+            self.log_test("PIN Generation on Accept", False, details)
+            return False, delivery_id
+
+    def test_pin_validation_incorrect(self):
+        """Test PIN validation with incorrect PIN"""
+        # Generate PIN first
+        pin_generated, delivery_id = self.test_pin_generation_on_accept()
+        if not pin_generated:
+            self.log_test("PIN Validation Incorrect", False, "Failed to generate PIN")
+            return False
+
+        # Try incorrect PIN
+        pin_data = {"pin": "9999"}  # Wrong PIN
+        success, status, data = self.make_request('POST', f'/api/deliveries/{delivery_id}/validate-pin', pin_data, self.motoboy_token)
+        
+        if success and data.get('success') == False:
+            attempts = data.get('attempts', 0)
+            remaining = data.get('remaining', 0)
+            code = data.get('code', '')
+            
+            if code == 'PIN_INCORRECT' and attempts == 1 and remaining == 2:
+                details = f"Incorrect PIN validation working - Attempts: {attempts}, Remaining: {remaining}"
+                self.log_test("PIN Validation Incorrect", True, details)
+                return True
+            else:
+                details = f"PIN validation logic issue - Code: {code}, Attempts: {attempts}, Remaining: {remaining}"
+                self.log_test("PIN Validation Incorrect", False, details)
+                return False
+        else:
+            details = f"Expected failed validation, got: Status {status}, Data: {data}"
+            self.log_test("PIN Validation Incorrect", False, details)
+            return False
+
+    def test_pin_blocking_after_3_attempts(self):
+        """Test PIN blocking after 3 incorrect attempts"""
+        # Generate PIN first
+        pin_generated, delivery_id = self.test_pin_generation_on_accept()
+        if not pin_generated:
+            self.log_test("PIN Blocking After 3 Attempts", False, "Failed to generate PIN")
+            return False
+
+        # Make 3 incorrect attempts
+        pin_data = {"pin": "9999"}  # Wrong PIN
+        
+        for attempt in range(1, 4):  # Attempts 1, 2, 3
+            success, status, data = self.make_request('POST', f'/api/deliveries/{delivery_id}/validate-pin', pin_data, self.motoboy_token)
+            
+            if not success or data.get('success') != False:
+                details = f"Failed on attempt {attempt} - Status: {status}, Data: {data}"
+                self.log_test("PIN Blocking After 3 Attempts", False, details)
+                return False
+
+        # Check if PIN is blocked after 3rd attempt
+        if data.get('code') == 'PIN_BLOCKED':
+            details = f"PIN correctly blocked after 3 attempts - Message: {data.get('message', '')}"
+            self.log_test("PIN Blocking After 3 Attempts", True, details)
+            return True
+        else:
+            details = f"PIN not blocked after 3 attempts - Code: {data.get('code', '')}, Data: {data}"
+            self.log_test("PIN Blocking After 3 Attempts", False, details)
+            return False
+
+    def test_pin_validation_correct(self):
+        """Test PIN validation with correct PIN"""
+        # Generate PIN first
+        pin_generated, delivery_id = self.test_pin_generation_on_accept()
+        if not pin_generated:
+            self.log_test("PIN Validation Correct", False, "Failed to generate PIN")
+            return False, None
+
+        # Get the actual PIN from database by checking delivery details
+        success, status, data = self.make_request('GET', '/api/deliveries', token=self.motoboy_token)
+        
+        if not success or 'deliveries' not in data:
+            self.log_test("PIN Validation Correct", False, "Failed to get delivery details")
+            return False, None
+
+        # Find our delivery and get the PIN
+        delivery = None
+        for d in data['deliveries']:
+            if d['id'] == delivery_id:
+                delivery = d
+                break
+
+        if not delivery or 'pin_confirmacao' not in delivery:
+            self.log_test("PIN Validation Correct", False, "PIN not found in delivery")
+            return False, None
+
+        correct_pin = delivery['pin_confirmacao']
+        
+        # Validate with correct PIN
+        pin_data = {"pin": correct_pin}
+        success, status, data = self.make_request('POST', f'/api/deliveries/{delivery_id}/validate-pin', pin_data, self.motoboy_token)
+        
+        if success and data.get('success') == True:
+            code = data.get('code', '')
+            can_complete = data.get('can_complete_delivery', False)
+            
+            if code == 'PIN_VALID' and can_complete:
+                details = f"Correct PIN validation working - Code: {code}, Can complete: {can_complete}"
+                self.log_test("PIN Validation Correct", True, details)
+                return True, delivery_id
+            else:
+                details = f"PIN validation response issue - Code: {code}, Can complete: {can_complete}"
+                self.log_test("PIN Validation Correct", False, details)
+                return False, delivery_id
+        else:
+            details = f"Expected successful validation, got: Status {status}, Data: {data}"
+            self.log_test("PIN Validation Correct", False, details)
+            return False, delivery_id
+
+    def test_delivery_finalization_without_pin_validation(self):
+        """Test that delivery finalization fails without PIN validation"""
+        # Generate PIN but don't validate it
+        pin_generated, delivery_id = self.test_pin_generation_on_accept()
+        if not pin_generated:
+            self.log_test("Delivery Finalization Without PIN", False, "Failed to generate PIN")
+            return False
+
+        # Try to finalize delivery without validating PIN
+        status_data = {"status": "delivered"}
+        success, status, data = self.make_request('PUT', f'/api/deliveries/{delivery_id}/status', status_data, self.motoboy_token, expected_status=400)
+        
+        if status == 400 and "PIN de confirmação deve ser validado" in data.get('detail', ''):
+            details = f"Correctly blocked delivery finalization without PIN validation - Message: {data.get('detail', '')}"
+            self.log_test("Delivery Finalization Without PIN", True, details)
+            return True
+        else:
+            details = f"Expected 400 with PIN validation error, got {status}: {data}"
+            self.log_test("Delivery Finalization Without PIN", False, details)
+            return False
+
+    def test_delivery_finalization_after_pin_validation(self):
+        """Test delivery finalization after successful PIN validation"""
+        # Validate PIN first
+        pin_validated, delivery_id = self.test_pin_validation_correct()
+        if not pin_validated:
+            self.log_test("Delivery Finalization After PIN", False, "Failed to validate PIN")
+            return False
+
+        # Update delivery status to pickup_confirmed first (proper flow)
+        status_data = {"status": "pickup_confirmed"}
+        success, status, data = self.make_request('PUT', f'/api/deliveries/{delivery_id}/status', status_data, self.motoboy_token)
+        
+        if not success:
+            self.log_test("Delivery Finalization After PIN", False, f"Failed to confirm pickup: {status} - {data}")
+            return False
+
+        # Update to in_transit
+        status_data = {"status": "in_transit"}
+        success, status, data = self.make_request('PUT', f'/api/deliveries/{delivery_id}/status', status_data, self.motoboy_token)
+        
+        if not success:
+            self.log_test("Delivery Finalization After PIN", False, f"Failed to set in_transit: {status} - {data}")
+            return False
+
+        # Now finalize delivery (should work after PIN validation)
+        status_data = {"status": "delivered"}
+        success, status, data = self.make_request('PUT', f'/api/deliveries/{delivery_id}/status', status_data, self.motoboy_token)
+        
+        if success:
+            details = f"Delivery finalized successfully after PIN validation - Message: {data.get('message', '')}"
+            self.log_test("Delivery Finalization After PIN", True, details)
+            return True
+        else:
+            details = f"Failed to finalize delivery after PIN validation - Status: {status}, Data: {data}"
+            self.log_test("Delivery Finalization After PIN", False, details)
+            return False
+
+    def test_pin_data_structure_verification(self):
+        """Test PIN data structure in database"""
+        # Generate PIN first
+        pin_generated, delivery_id = self.test_pin_generation_on_accept()
+        if not pin_generated:
+            self.log_test("PIN Data Structure Verification", False, "Failed to generate PIN")
+            return False
+
+        # Get delivery details to verify PIN structure
+        success, status, data = self.make_request('GET', '/api/deliveries', token=self.motoboy_token)
+        
+        if not success or 'deliveries' not in data:
+            self.log_test("PIN Data Structure Verification", False, "Failed to get delivery details")
+            return False
+
+        # Find our delivery
+        delivery = None
+        for d in data['deliveries']:
+            if d['id'] == delivery_id:
+                delivery = d
+                break
+
+        if not delivery:
+            self.log_test("PIN Data Structure Verification", False, "Delivery not found")
+            return False
+
+        # Verify PIN structure
+        required_fields = ['pin_completo', 'pin_confirmacao', 'pin_tentativas', 'pin_bloqueado']
+        missing_fields = []
+        
+        for field in required_fields:
+            if field not in delivery:
+                missing_fields.append(field)
+
+        if missing_fields:
+            details = f"Missing PIN fields: {', '.join(missing_fields)}"
+            self.log_test("PIN Data Structure Verification", False, details)
+            return False
+
+        # Verify field values
+        pin_completo = delivery.get('pin_completo', '')
+        pin_confirmacao = delivery.get('pin_confirmacao', '')
+        pin_tentativas = delivery.get('pin_tentativas', -1)
+        pin_bloqueado = delivery.get('pin_bloqueado', None)
+
+        issues = []
+        
+        if len(pin_completo) != 8:
+            issues.append(f"pin_completo should be 8 chars, got {len(pin_completo)}")
+        
+        if len(pin_confirmacao) != 4:
+            issues.append(f"pin_confirmacao should be 4 chars, got {len(pin_confirmacao)}")
+        
+        if pin_confirmacao != pin_completo[-4:]:
+            issues.append("pin_confirmacao should be last 4 digits of pin_completo")
+        
+        if pin_tentativas != 0:
+            issues.append(f"pin_tentativas should be 0 initially, got {pin_tentativas}")
+        
+        if pin_bloqueado != False:
+            issues.append(f"pin_bloqueado should be False initially, got {pin_bloqueado}")
+
+        if issues:
+            details = f"PIN structure issues: {'; '.join(issues)}"
+            self.log_test("PIN Data Structure Verification", False, details)
+            return False
+        else:
+            details = f"PIN structure correct - Full: {len(pin_completo)} chars, Confirmation: {len(pin_confirmacao)} chars, Attempts: {pin_tentativas}, Blocked: {pin_bloqueado}"
+            self.log_test("PIN Data Structure Verification", True, details)
+            return True
+
+    def test_pin_validado_com_sucesso_field(self):
+        """Test the new pin_validado_com_sucesso field tracking"""
+        # Validate PIN correctly
+        pin_validated, delivery_id = self.test_pin_validation_correct()
+        if not pin_validated:
+            self.log_test("PIN Validado Com Sucesso Field", False, "Failed to validate PIN")
+            return False
+
+        # Get delivery details to verify the new field
+        success, status, data = self.make_request('GET', '/api/deliveries', token=self.motoboy_token)
+        
+        if not success or 'deliveries' not in data:
+            self.log_test("PIN Validado Com Sucesso Field", False, "Failed to get delivery details")
+            return False
+
+        # Find our delivery
+        delivery = None
+        for d in data['deliveries']:
+            if d['id'] == delivery_id:
+                delivery = d
+                break
+
+        if not delivery:
+            self.log_test("PIN Validado Com Sucesso Field", False, "Delivery not found")
+            return False
+
+        # Check the new fields
+        pin_validado_com_sucesso = delivery.get('pin_validado_com_sucesso', None)
+        pin_validado_em = delivery.get('pin_validado_em', None)
+
+        if pin_validado_com_sucesso == True:
+            if pin_validado_em:
+                details = f"New PIN validation fields working - pin_validado_com_sucesso: {pin_validado_com_sucesso}, pin_validado_em: {pin_validado_em}"
+                self.log_test("PIN Validado Com Sucesso Field", True, details)
+                return True
+            else:
+                details = f"pin_validado_com_sucesso is True but pin_validado_em is missing"
+                self.log_test("PIN Validado Com Sucesso Field", False, details)
+                return False
+        else:
+            details = f"pin_validado_com_sucesso should be True after validation, got: {pin_validado_com_sucesso}"
+            self.log_test("PIN Validado Com Sucesso Field", False, details)
+            return False
+
     def run_all_tests(self):
         """Run all tests in sequence"""
         print("🚀 Starting SrBoy Delivery System Comprehensive API Tests")
