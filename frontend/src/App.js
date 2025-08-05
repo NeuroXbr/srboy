@@ -466,6 +466,124 @@ function App() {
     return stars;
   };
 
+  // Admin Dashboard Functions
+  const fetchAdminDashboard = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/dashboard`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAdminDashboard(data);
+      }
+    } catch (error) {
+      console.error('Error fetching admin dashboard:', error);
+    }
+  };
+
+  const fetchAdminUsers = async (userType = '', city = '') => {
+    try {
+      const params = new URLSearchParams();
+      if (userType) params.append('user_type', userType);
+      if (city) params.append('city', city);
+      
+      const response = await fetch(`${API_BASE_URL}/api/admin/users?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAdminUsers(data.users);
+      }
+    } catch (error) {
+      console.error('Error fetching admin users:', error);
+    }
+  };
+
+  const fetchAdminDeliveries = async (status = '', city = '') => {
+    try {
+      const params = new URLSearchParams();
+      if (status) params.append('status', status);
+      if (city) params.append('city', city);
+      
+      const response = await fetch(`${API_BASE_URL}/api/admin/deliveries?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAdminDeliveries(data.deliveries);
+      }
+    } catch (error) {
+      console.error('Error fetching admin deliveries:', error);
+    }
+  };
+
+  const fetchAdminAnalytics = async (period = '7d') => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/analytics?period=${period}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAdminAnalytics(data);
+      }
+    } catch (error) {
+      console.error('Error fetching admin analytics:', error);
+    }
+  };
+
+  const fetchAdminFinancial = async (period = '30d') => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/financial-report?period=${period}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAdminFinancial(data);
+      }
+    } catch (error) {
+      console.error('Error fetching admin financial:', error);
+    }
+  };
+
+  const performAdminAction = async (userId, action, reason = '') => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/user/${userId}/action`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ action, reason })
+      });
+
+      if (response.ok) {
+        fetchAdminUsers(); // Refresh users list
+        alert(`Ação '${action}' executada com sucesso!`);
+      } else {
+        const error = await response.json();
+        alert(`Erro: ${error.detail}`);
+      }
+    } catch (error) {
+      console.error('Error performing admin action:', error);
+      alert('Erro ao executar ação administrativa');
+    }
+  };
+
   const getStatusText = (status) => {
     const texts = {
       pending: 'Pendente',
