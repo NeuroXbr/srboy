@@ -590,13 +590,20 @@ async def create_delivery(delivery_data: CreateDelivery, credentials: HTTPAuthor
         best_match = find_best_motoboy(delivery)
         
         if best_match:
+            # Generate PIN for security when auto-matching
+            pin_completo, pin_confirmacao = generate_delivery_pin()
+            
             deliveries_collection.update_one(
                 {"id": delivery["id"]},
                 {
                     "$set": {
                         "motoboy_id": best_match["motoboy"]["id"],
                         "status": "matched",
-                        "matched_at": datetime.now()
+                        "matched_at": datetime.now(),
+                        "pin_completo": pin_completo,
+                        "pin_confirmacao": pin_confirmacao,
+                        "pin_tentativas": 0,
+                        "pin_bloqueado": False
                     }
                 }
             )
