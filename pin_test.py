@@ -213,33 +213,40 @@ class PINSystemTester:
             return False
 
         # First, let's make an incorrect PIN attempt to change pin_tentativas from 0
-        # This is needed because of a bug in the current logic
         pin_data = {"pin": "WRONG"}
-        self.make_request('POST', f'/api/deliveries/{self.test_delivery_id}/validate-pin', pin_data, self.motoboy_token)
+        pin_success, pin_status, pin_response = self.make_request('POST', f'/api/deliveries/{self.test_delivery_id}/validate-pin', pin_data, self.motoboy_token)
+        
+        # Check the delivery state after incorrect PIN
+        delivery_success, delivery_status, delivery_data = self.make_request('GET', '/api/deliveries', token=self.motoboy_token)
+        if delivery_success:
+            test_delivery = None
+            for delivery in delivery_data.get('deliveries', []):
+                if delivery['id'] == self.test_delivery_id:
+                    test_delivery = delivery
+                    break
+            
+            if test_delivery:
+                print(f"   DEBUG: After incorrect PIN - pin_tentativas: {test_delivery.get('pin_tentativas')}, pin_bloqueado: {test_delivery.get('pin_bloqueado')}")
         
         # Now try to finalize - should fail because PIN hasn't been validated correctly
         status_data = {"status": "delivered"}
         success, status, data = self.make_request('PUT', f'/api/deliveries/{self.test_delivery_id}/status', status_data, self.motoboy_token, expected_status=400)
         
-        # Handle empty response
+        # Handle different response scenarios
         if status == 0 and 'error' in data:
-            self.log_test("Finalize Without PIN", False, f"Request failed: {data['error']}")
-            return False
-        
-        if status == 400 and "PIN de confirmação deve ser validado" in data.get('detail', ''):
-            success = True
-            details = "Correctly blocked delivery finalization without PIN validation"
+            success = False
+            details = f"Request failed: {data['error']}"
         elif status == 400:
-            success = True
-            details = f"Correctly blocked with status 400: {data.get('detail', 'Unknown error')}"
-        elif status == 500:
-            # This might be the receipt creation bug - let's check if it's related to missing timestamps
-            if "pickup_confirmed_at" in data.get('content', '') or "delivered_at" in data.get('content', ''):
-                success = False
-                details = f"BUG FOUND: Receipt creation fails due to missing timestamps. Status flow should require pickup_confirmed before delivered. Error: {data.get('content', '')[:100]}"
+            if "PIN de confirmação deve ser validado" in data.get('detail', ''):
+                success = True
+                details = "✅ Correctly blocked delivery finalization without PIN validation"
             else:
-                success = False
-                details = f"Unexpected 500 error: {data}"
+                success = True
+                details = f"✅ Correctly blocked with status 400: {data.get('detail', 'Unknown error')}"
+        elif status == 500:
+            # This indicates the PIN validation logic is not working correctly
+            success = False
+            details = f"❌ BUG FOUND: PIN validation logic failed - delivery was allowed to proceed to receipt creation despite invalid PIN. This should have been blocked with 400 error."
         else:
             success = False
             details = f"Expected 400 with PIN validation error, got {status}: {data}"
