@@ -2518,7 +2518,7 @@ function LojistaRegistration({ onBack, onRegister }) {
             </div>
           </div>
           <h1 className="text-4xl font-bold text-white mb-4">Cadastro de Lojista</h1>
-          <p className="text-purple-200">Cadastre sua loja no SrBoy e tenha acesso a entregas rápidas e seguras</p>
+          <p className="text-purple-200">Cadastre sua loja no <span translate="no">SrBoy</span> e tenha acesso a entregas rápidas e seguras</p>
           
           {/* Progress Steps */}
           <div className="flex justify-center mt-8 mb-8">
