@@ -1297,6 +1297,481 @@ function App() {
               </Card>
             )}
           </TabsContent>
+
+          {/* Admin Tab */}
+          {user?.user_type === 'admin' && (
+            <TabsContent value="admin" className="space-y-6">
+              <div className="grid lg:grid-cols-4 gap-6">
+                {/* Admin Navigation */}
+                <Card className="lg:col-span-1">
+                  <CardHeader>
+                    <CardTitle className="text-sm">Painel Administrativo</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <Button 
+                        variant={adminActiveSection === 'overview' ? 'default' : 'ghost'}
+                        className="w-full justify-start"
+                        onClick={() => setAdminActiveSection('overview')}
+                      >
+                        <TrendingUp className="h-4 w-4 mr-2" />
+                        Visão Geral
+                      </Button>
+                      <Button 
+                        variant={adminActiveSection === 'users' ? 'default' : 'ghost'}
+                        className="w-full justify-start"
+                        onClick={() => setAdminActiveSection('users')}
+                      >
+                        <Users className="h-4 w-4 mr-2" />
+                        Usuários
+                      </Button>
+                      <Button 
+                        variant={adminActiveSection === 'deliveries' ? 'default' : 'ghost'}
+                        className="w-full justify-start"
+                        onClick={() => setAdminActiveSection('deliveries')}
+                      >
+                        <Truck className="h-4 w-4 mr-2" />
+                        Entregas
+                      </Button>
+                      <Button 
+                        variant={adminActiveSection === 'financial' ? 'default' : 'ghost'}
+                        className="w-full justify-start"
+                        onClick={() => setAdminActiveSection('financial')}
+                      >
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Financeiro
+                      </Button>
+                      <Button 
+                        variant={adminActiveSection === 'security' ? 'default' : 'ghost'}
+                        className="w-full justify-start"
+                        onClick={() => setAdminActiveSection('security')}
+                      >
+                        <Shield className="h-4 w-4 mr-2" />
+                        Segurança
+                      </Button>
+                      <Button 
+                        variant={adminActiveSection === 'analytics' ? 'default' : 'ghost'}
+                        className="w-full justify-start"
+                        onClick={() => setAdminActiveSection('analytics')}
+                      >
+                        <TrendingUp className="h-4 w-4 mr-2" />
+                        Analytics
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Admin Content */}
+                <div className="lg:col-span-3">
+                  {adminActiveSection === 'overview' && adminDashboard && (
+                    <div className="space-y-6">
+                      {/* Overview Stats */}
+                      <div className="grid md:grid-cols-4 gap-4">
+                        <Card>
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm text-slate-600">Total Usuários</p>
+                                <p className="text-2xl font-bold">{adminDashboard.overview?.total_users}</p>
+                              </div>
+                              <Users className="h-8 w-8 text-blue-500" />
+                            </div>
+                          </CardContent>
+                        </Card>
+                        
+                        <Card>
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm text-slate-600">Entregas Concluídas</p>
+                                <p className="text-2xl font-bold">{adminDashboard.overview?.completed_deliveries}</p>
+                              </div>
+                              <CheckCircle className="h-8 w-8 text-green-500" />
+                            </div>
+                          </CardContent>
+                        </Card>
+                        
+                        <Card>
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm text-slate-600">Receita Total</p>
+                                <p className="text-2xl font-bold">R$ {adminDashboard.financial?.total_revenue?.toFixed(2)}</p>
+                              </div>
+                              <CreditCard className="h-8 w-8 text-purple-500" />
+                            </div>
+                          </CardContent>
+                        </Card>
+                        
+                        <Card>
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm text-slate-600">Taxa de Sucesso</p>
+                                <p className="text-2xl font-bold">{adminDashboard.overview?.completion_rate}%</p>
+                              </div>
+                              <Award className="h-8 w-8 text-yellow-500" />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* City Statistics */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Estatísticas por Cidade</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            {adminDashboard.city_statistics && Object.entries(adminDashboard.city_statistics).map(([city, stats]) => (
+                              <div key={city} className="flex items-center justify-between p-3 bg-slate-50 rounded">
+                                <div>
+                                  <p className="font-medium">{city}</p>
+                                  <p className="text-sm text-slate-600">{stats.motoboys} motoboys • {stats.deliveries} entregas</p>
+                                </div>
+                                <div className="text-right">
+                                  <span className={`px-2 py-1 rounded-full text-xs ${
+                                    stats.demand_level === 'high' ? 'bg-red-100 text-red-700' :
+                                    stats.demand_level === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                    'bg-green-100 text-green-700'
+                                  }`}>
+                                    {stats.demand_level} demanda
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Security Alerts */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Shield className="h-5 w-5 text-red-500" />
+                            Alertas de Segurança
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          {adminDashboard.security?.recent_alerts?.length > 0 ? (
+                            <div className="space-y-3">
+                              {adminDashboard.security.recent_alerts.map((alert) => (
+                                <div key={alert.id} className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded">
+                                  <div>
+                                    <p className="font-medium text-red-700">{alert.name}</p>
+                                    <p className="text-sm text-red-600">Ranking: {alert.ranking_score} pontos</p>
+                                  </div>
+                                  <Badge variant="destructive">Risco {alert.risk_level}</Badge>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-slate-500">Nenhum alerta de segurança ativo</p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+
+                  {adminActiveSection === 'users' && (
+                    <div className="space-y-6">
+                      <div className="flex gap-4">
+                        <Button onClick={() => fetchAdminUsers('motoboy')}>
+                          Motoboys
+                        </Button>
+                        <Button onClick={() => fetchAdminUsers('lojista')}>
+                          Lojistas
+                        </Button>
+                        <Button onClick={() => fetchAdminUsers()}>
+                          Todos
+                        </Button>
+                      </div>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Gestão de Usuários</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            {adminUsers.map((user) => (
+                              <div key={user.id} className="flex items-center justify-between p-4 border rounded">
+                                <div>
+                                  <p className="font-medium">{user.name}</p>
+                                  <p className="text-sm text-slate-600">
+                                    {user.user_type} • {user.email} • {user.base_city || 'N/A'}
+                                  </p>
+                                  {user.total_deliveries && (
+                                    <p className="text-sm text-slate-500">
+                                      {user.total_deliveries} entregas realizadas
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => performAdminAction(user.id, 'flag_for_review', 'Revisão administrativa')}
+                                  >
+                                    Sinalizar
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="destructive"
+                                    onClick={() => performAdminAction(user.id, 'suspend', 'Suspensão administrativa')}
+                                  >
+                                    Suspender
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+
+                  {adminActiveSection === 'deliveries' && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Gestão de Entregas</CardTitle>
+                        <div className="flex gap-4">
+                          <Button size="sm" onClick={() => fetchAdminDeliveries('pending')}>
+                            Pendentes
+                          </Button>
+                          <Button size="sm" onClick={() => fetchAdminDeliveries('in_transit')}>
+                            Em Trânsito
+                          </Button>
+                          <Button size="sm" onClick={() => fetchAdminDeliveries('delivered')}>
+                            Entregues
+                          </Button>
+                          <Button size="sm" onClick={() => fetchAdminDeliveries()}>
+                            Todas
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {adminDeliveries.map((delivery) => (
+                            <div key={delivery.id} className="p-4 border rounded">
+                              <div className="flex justify-between items-start mb-2">
+                                <div>
+                                  <p className="font-medium">#{delivery.id.substring(0, 8)}</p>
+                                  <p className="text-sm text-slate-600">
+                                    {delivery.lojista_name} → {delivery.recipient_info?.name}
+                                  </p>
+                                </div>
+                                <Badge className={getStatusColor(delivery.status)}>
+                                  {getStatusText(delivery.status)}
+                                </Badge>
+                              </div>
+                              
+                              <div className="grid md:grid-cols-2 gap-4 text-sm">
+                                <div>
+                                  <p><strong>Valor:</strong> R$ {delivery.total_price?.toFixed(2)}</p>
+                                  <p><strong>Distância:</strong> {delivery.distance_km}km</p>
+                                </div>
+                                <div>
+                                  {delivery.pin_confirmacao && (
+                                    <p><strong>PIN:</strong> {delivery.pin_confirmacao} 
+                                      {delivery.pin_validado_com_sucesso && 
+                                        <span className="ml-1 text-green-600">✓ Validado</span>
+                                      }
+                                    </p>
+                                  )}
+                                  <p><strong>Data:</strong> {new Date(delivery.created_at).toLocaleDateString()}</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {adminActiveSection === 'financial' && adminFinancial && (
+                    <div className="space-y-6">
+                      <div className="grid md:grid-cols-3 gap-4">
+                        <Card>
+                          <CardContent className="p-4">
+                            <p className="text-sm text-slate-600">Receita Total</p>
+                            <p className="text-2xl font-bold text-green-600">R$ {adminFinancial.summary?.total_revenue}</p>
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardContent className="p-4">
+                            <p className="text-sm text-slate-600">Taxa da Plataforma</p>
+                            <p className="text-2xl font-bold text-purple-600">R$ {adminFinancial.summary?.total_platform_fees}</p>
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardContent className="p-4">
+                            <p className="text-sm text-slate-600">Margem de Lucro</p>
+                            <p className="text-2xl font-bold text-blue-600">{adminFinancial.summary?.profit_margin}%</p>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Breakdown por Cidade</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            {adminFinancial.city_breakdown && Object.entries(adminFinancial.city_breakdown).map(([city, data]) => (
+                              <div key={city} className="flex justify-between items-center p-3 bg-slate-50 rounded">
+                                <div>
+                                  <p className="font-medium">{city}</p>
+                                  <p className="text-sm text-slate-600">{data.deliveries} entregas</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-bold">R$ {data.revenue}</p>
+                                  <p className="text-sm text-slate-600">Avg: R$ {data.avg_delivery_value}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+
+                  {adminActiveSection === 'security' && (
+                    <div className="space-y-6">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Shield className="h-5 w-5 text-red-500" />
+                            Sistema de Segurança PIN
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid md:grid-cols-2 gap-4 mb-4">
+                            <div className="p-3 bg-blue-50 rounded">
+                              <p className="text-sm text-blue-600">Entregas com PIN</p>
+                              <p className="text-xl font-bold text-blue-800">
+                                {adminDashboard?.security?.pin_system?.deliveries_with_pin || 0}
+                              </p>
+                            </div>
+                            <div className="p-3 bg-green-50 rounded">
+                              <p className="text-sm text-green-600">PINs Validados</p>
+                              <p className="text-xl font-bold text-green-800">
+                                {adminDashboard?.security?.pin_system?.pin_validations_success || 0}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="p-3 bg-red-50 rounded mb-4">
+                            <p className="text-sm text-red-600">PINs Bloqueados</p>
+                            <p className="text-xl font-bold text-red-800">
+                              {adminDashboard?.security?.pin_system?.pin_blocked || 0}
+                            </p>
+                            <p className="text-xs text-red-600 mt-1">
+                              (Após 3 tentativas incorretas)
+                            </p>
+                          </div>
+                          
+                          <p className="text-sm text-slate-600">
+                            💡 O sistema de PIN de confirmação garante que apenas o destinatário correto receba a encomenda,
+                            adicionando uma camada extra de segurança às entregas.
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Análise de Risco de Motoboys</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            {adminDashboard?.security?.recent_alerts?.map((alert) => (
+                              <div key={alert.id} className="p-3 border border-orange-200 bg-orange-50 rounded">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <p className="font-medium">{alert.name}</p>
+                                    <p className="text-sm text-orange-700">
+                                      Score: {alert.ranking_score} • Nível de risco: {alert.risk_level}
+                                    </p>
+                                  </div>
+                                  <Button size="sm" variant="outline">
+                                    Analisar
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+
+                  {adminActiveSection === 'analytics' && adminAnalytics && (
+                    <div className="space-y-6">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Métricas de Performance</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid md:grid-cols-3 gap-4">
+                            <div className="p-3 bg-blue-50 rounded">
+                              <p className="text-sm text-blue-600">Tempo Médio de Entrega</p>
+                              <p className="text-xl font-bold text-blue-800">
+                                {adminAnalytics.performance_metrics?.avg_delivery_time_minutes} min
+                              </p>
+                            </div>
+                            <div className="p-3 bg-green-50 rounded">
+                              <p className="text-sm text-green-600">Satisfação Cliente</p>
+                              <p className="text-xl font-bold text-green-800">
+                                {adminAnalytics.performance_metrics?.customer_satisfaction}/5 ⭐
+                              </p>
+                            </div>
+                            <div className="p-3 bg-purple-50 rounded">
+                              <p className="text-sm text-purple-600">Taxa de Sucesso</p>
+                              <p className="text-xl font-bold text-purple-800">
+                                {adminAnalytics.performance_metrics?.success_rate}%
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Top Performers</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid md:grid-cols-2 gap-6">
+                            <div>
+                              <h4 className="font-medium mb-3">🏍️ Top Motoboys</h4>
+                              <div className="space-y-2">
+                                {adminAnalytics.top_performers?.motoboys?.slice(0, 5).map((motoboy) => (
+                                  <div key={motoboy.id} className="flex justify-between p-2 bg-slate-50 rounded">
+                                    <span className="text-sm">{motoboy.name}</span>
+                                    <span className="text-sm font-medium">{motoboy.total_deliveries} entregas</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            
+                            <div>
+                              <h4 className="font-medium mb-3">🏪 Top Lojistas</h4>
+                              <div className="space-y-2">
+                                {adminAnalytics.top_performers?.lojistas?.slice(0, 5).map((lojista) => (
+                                  <div key={lojista.id} className="flex justify-between p-2 bg-slate-50 rounded">
+                                    <span className="text-sm">{lojista.name}</span>
+                                    <span className="text-sm font-medium">{lojista.total_deliveries} pedidos</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
 
