@@ -677,7 +677,12 @@ async def accept_delivery(delivery_id: str, credentials: HTTPAuthorizationCreden
         
         # Update delivery with motoboy and PIN
         update_result = deliveries_collection.update_one(
-            {"id": delivery_id, "status": "pending"},
+            {
+                "$or": [
+                    {"id": delivery_id, "status": "pending"},
+                    {"id": delivery_id, "status": "matched", "motoboy_id": motoboy_id, "pin_confirmacao": {"$exists": False}}
+                ]
+            },
             {
                 "$set": {
                     "motoboy_id": motoboy_id,
