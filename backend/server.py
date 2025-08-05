@@ -696,6 +696,58 @@ async def accept_delivery(delivery_id: str, credentials: HTTPAuthorizationCreden
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+@app.post("/api/deliveries/{delivery_id}/validate-pin")
+async def validate_pin_endpoint(delivery_id: str, pin_data: dict, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Validate PIN for delivery confirmation"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload["user_id"]
+        user_type = payload["user_type"]
+        
+        if user_type != "motoboy":
+            raise HTTPException(status_code=403, detail="Only motoboys can validate PIN")
+        
+        entered_pin = pin_data.get("pin", "").strip()
+        if not entered_pin:
+            raise HTTPException(status_code=400, detail="PIN is required")
+        
+        if len(entered_pin) != 4:
+            raise HTTPException(status_code=400, detail="PIN must be 4 digits")
+        
+        # Check if delivery belongs to this motoboy
+        delivery = deliveries_collection.find_one({"id": delivery_id})
+        if not delivery:
+            raise HTTPException(status_code=404, detail="Delivery not found")
+        
+        if delivery.get("motoboy_id") != user_id:
+            raise HTTPException(status_code=403, detail="You can only validate PIN for your own deliveries")
+        
+        # Validate PIN
+        result = validate_delivery_pin(delivery_id, entered_pin)
+        
+        if result["success"]:
+            return {
+                "success": True,
+                "message": result["message"],
+                "code": result["code"],
+                "can_complete_delivery": True
+            }
+        else:
+            return {
+                "success": False,
+                "message": result["message"],
+                "code": result["code"],
+                "attempts": result.get("attempts", 0),
+                "remaining": result.get("remaining", 0),
+                "can_complete_delivery": False
+            }
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
 @app.put("/api/deliveries/{delivery_id}/status")
 async def update_delivery_status(delivery_id: str, status_data: dict, credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Update delivery status with enhanced workflow"""
