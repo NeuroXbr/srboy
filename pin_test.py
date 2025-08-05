@@ -116,14 +116,14 @@ class PINSystemTester:
             "pickup_address": {
                 "lat": -23.5320,
                 "lng": -47.1360,
-                "address": "Rua das Flores, 123, São Roque",
-                "city": "São Roque"
+                "address": "Rua das Flores, 123, Mairinque",
+                "city": "Mairinque"  # Different city to avoid auto-matching
             },
             "delivery_address": {
                 "lat": -23.5450,
                 "lng": -47.1680,
-                "address": "Av. Principal, 456, São Roque",
-                "city": "São Roque"
+                "address": "Av. Principal, 456, Mairinque",
+                "city": "Mairinque"
             },
             "recipient_info": {
                 "name": "João Silva",
@@ -137,7 +137,12 @@ class PINSystemTester:
         
         if success and 'delivery' in data:
             self.test_delivery_id = data['delivery']['id']
-            details = f"Delivery created - ID: {self.test_delivery_id}, Status: {data['delivery']['status']}"
+            delivery_status = data['delivery']['status']
+            details = f"Delivery created - ID: {self.test_delivery_id}, Status: {delivery_status}"
+            
+            # If it was auto-matched, that's fine too
+            if delivery_status == "matched" and data['delivery'].get('motoboy_id'):
+                details += " (auto-matched)"
         else:
             details = f"Status: {status}, Response: {data}"
         
