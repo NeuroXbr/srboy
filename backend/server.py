@@ -361,6 +361,71 @@ def update_follow_counts(user_id: str):
         }}
     )
 
+def generate_delivery_pin() -> tuple:
+    """Generate 8-digit alphanumeric PIN and return (full_pin, confirmation_pin)"""
+    import random
+    import string
+    
+    # Generate 8-digit alphanumeric code (letters and numbers)
+    characters = string.ascii_uppercase + string.digits
+    pin_completo = ''.join(random.choice(characters) for _ in range(8))
+    
+    # Get last 4 digits for confirmation
+    pin_confirmacao = pin_completo[-4:]
+    
+    return pin_completo, pin_confirmacao
+
+def validate_delivery_pin(delivery_id: str, entered_pin: str) -> dict:
+    """Validate PIN for delivery confirmation"""
+    delivery = deliveries_collection.find_one({"id": delivery_id})
+    
+    if not delivery:
+        return {"success": False, "message": "Entrega não encontrada", "code": "DELIVERY_NOT_FOUND"}
+    
+    if delivery.get("pin_bloqueado", False):
+        return {"success": False, "message": "PIN bloqueado após 3 tentativas. Entre em contato com o suporte.", "code": "PIN_BLOCKED"}
+    
+    if not delivery.get("pin_confirmacao"):
+        return {"success": False, "message": "PIN não gerado para esta entrega", "code": "NO_PIN"}
+    
+    # Validate PIN
+    if entered_pin.upper() == delivery["pin_confirmacao"].upper():
+        # PIN correct - reset attempts and allow delivery completion
+        deliveries_collection.update_one(
+            {"id": delivery_id},
+            {"$set": {"pin_tentativas": 0}}
+        )
+        return {"success": True, "message": "PIN validado com sucesso!", "code": "PIN_VALID"}
+    else:
+        # PIN incorrect - increment attempts
+        new_attempts = delivery.get("pin_tentativas", 0) + 1
+        update_data = {"pin_tentativas": new_attempts}
+        
+        # Block PIN after 3 attempts
+        if new_attempts >= 3:
+            update_data["pin_bloqueado"] = True
+            
+        deliveries_collection.update_one(
+            {"id": delivery_id},
+            {"$set": update_data}
+        )
+        
+        if new_attempts >= 3:
+            return {
+                "success": False, 
+                "message": "PIN bloqueado após 3 tentativas incorretas. Entre em contato com o suporte.", 
+                "code": "PIN_BLOCKED",
+                "attempts": new_attempts
+            }
+        else:
+            return {
+                "success": False, 
+                "message": f"PIN incorreto. {3 - new_attempts} tentativas restantes.", 
+                "code": "PIN_INCORRECT",
+                "attempts": new_attempts,
+                "remaining": 3 - new_attempts
+            }
+
 # API Endpoints
 @app.get("/api/health")
 async def health_check():
