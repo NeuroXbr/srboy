@@ -85,8 +85,17 @@ function App() {
       fetchProfile(); // Load user's social profile
       fetchFeedPosts(); // Load social feed
       fetchFeedStories(); // Load stories feed
+      
+      // Load admin data if admin user
+      if (user?.user_type === 'admin') {
+        fetchAdminDashboard();
+        fetchAdminUsers();
+        fetchAdminDeliveries();
+        fetchAdminAnalytics();
+        fetchAdminFinancial();
+      }
     }
-  }, [token]);
+  }, [token, user?.user_type]);
 
   const fetchUserProfile = async () => {
     try {
