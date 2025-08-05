@@ -105,419 +105,89 @@
 user_problem_statement: "Test all new administrative endpoints for SrBoy delivery app including admin login, dashboard statistics, user management with filters, delivery management, admin actions (suspend/activate/flag), analytics with performance metrics, and financial reports with city breakdown and payment methods."
 
 backend:
-  - task: "PIN generation on delivery acceptance"
+  - task: "Admin Login endpoint"
     implemented: true
-    working: true
+    working: "NA"
     file: "server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
         - working: "NA"
           agent: "user"
-          comment: "User requested testing of new PIN confirmation system for delivery security"
-        - working: true
-          agent: "testing"
-          comment: "PIN generation working correctly - POST /api/deliveries/{delivery_id}/accept generates 8-digit alphanumeric PIN and returns 4-digit confirmation code. PIN structure verified: full PIN 8 chars, confirmation PIN is last 4 digits."
-        - working: true
-          agent: "testing"
-          comment: "RETESTED AFTER CORRECTIONS: PIN generation working perfectly. Fixed auto-matching flow to generate PINs during delivery creation when motoboy is auto-assigned, and manual accept flow for pending deliveries. PIN structure verified: 8-digit alphanumeric full PIN, 4-digit confirmation PIN (last 4 digits). Both auto-matching and manual accept flows generate PINs correctly."
+          comment: "User requested testing of new admin login endpoint POST /api/admin/login with email admin@srboy.com and name 'Naldino - Admin'"
 
-  - task: "PIN validation endpoint"
+  - task: "Admin Dashboard endpoint"
     implemented: true
-    working: true
+    working: "NA"
     file: "server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
         - working: "NA"
           agent: "user"
-          comment: "User requested testing of PIN validation with correct/incorrect attempts"
-        - working: true
-          agent: "testing"
-          comment: "PIN validation working correctly - POST /api/deliveries/{delivery_id}/validate-pin properly handles incorrect attempts (increments pin_tentativas), correct validation (resets pin_tentativas to 0), and blocks after 3 attempts (sets pin_bloqueado to true). All response codes and messages working as expected."
-        - working: true
-          agent: "testing"
-          comment: "RETESTED AFTER CORRECTIONS: PIN validation endpoint working perfectly. Incorrect PIN attempts increment pin_tentativas and show remaining attempts. Correct PIN validation sets pin_validado_com_sucesso=true and pin_validado_em timestamp. All response codes (PIN_VALID, PIN_INCORRECT, PIN_BLOCKED) working correctly."
+          comment: "User requested testing of admin dashboard GET /api/admin/dashboard - should return comprehensive statistics including users, deliveries, financial metrics, city stats, and security data"
 
-  - task: "PIN blocking after 3 attempts"
+  - task: "Admin User Management endpoint"
     implemented: true
-    working: true
+    working: "NA"
     file: "server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
         - working: "NA"
           agent: "user"
-          comment: "User requested testing of PIN blocking mechanism"
-        - working: true
-          agent: "testing"
-          comment: "PIN blocking working correctly - after 3 incorrect attempts, pin_bloqueado is set to true and subsequent validation attempts return PIN_BLOCKED error code with appropriate message."
-        - working: true
-          agent: "testing"
-          comment: "RETESTED AFTER CORRECTIONS: PIN blocking mechanism working perfectly. After exactly 3 incorrect attempts, pin_bloqueado is set to true and returns PIN_BLOCKED code with message 'PIN bloqueado após 3 tentativas incorretas. Entre em contato com o suporte.'"
+          comment: "User requested testing of user management GET /api/admin/users with filters (user_type=motoboy/lojista) and pagination - should return enriched user data with statistics"
 
-  - task: "Delivery finalization with PIN validation"
+  - task: "Admin Delivery Management endpoint"
     implemented: true
-    working: true
+    working: "NA"
     file: "server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
         - working: "NA"
           agent: "user"
-          comment: "User requested testing that delivery finalization requires PIN validation first"
-        - working: false
-          agent: "testing"
-          comment: "CRITICAL BUG FOUND: PIN validation logic in PUT /api/deliveries/{delivery_id}/status endpoint is flawed. The condition 'if delivery.get(\"pin_confirmacao\") and delivery.get(\"pin_tentativas\", 0) == 0' is backwards - it only checks PIN validation when pin_tentativas is 0, but after incorrect attempts pin_tentativas > 0, so the check is bypassed. This allows delivery finalization without proper PIN validation, which is a security vulnerability."
-        - working: true
-          agent: "testing"
-          comment: "CRITICAL BUG FIXED! Delivery finalization security now working correctly. The logic now uses pin_validado_com_sucesso field to track successful PIN validation instead of relying on pin_tentativas == 0. Delivery finalization is properly blocked with error message 'PIN de confirmação deve ser validado antes de finalizar a entrega. Use o endpoint /validate-pin primeiro.' until PIN is successfully validated. Security vulnerability resolved."
+          comment: "User requested testing of delivery management GET /api/admin/deliveries with filters (status=pending/delivered) - should return deliveries with enriched user information"
 
-  - task: "PIN data structure verification"
+  - task: "Admin User Actions endpoint"
     implemented: true
-    working: true
+    working: "NA"
     file: "server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
         - working: "NA"
           agent: "user"
-          comment: "User requested verification of PIN data structure in database"
-        - working: true
-          agent: "testing"
-          comment: "PIN data structure verified working - pin_completo (8 chars), pin_confirmacao (4 chars), pin_tentativas (integer), pin_bloqueado (boolean) fields are properly saved. PIN confirmation is correctly the last 4 digits of the full PIN."
-        - working: true
-          agent: "testing"
-          comment: "RETESTED AFTER CORRECTIONS: PIN data structure working perfectly. All required fields present and correct: pin_completo (8 alphanumeric chars), pin_confirmacao (4 chars, last 4 of full PIN), pin_tentativas (starts at 0), pin_bloqueado (starts as false). New tracking fields added: pin_validado_com_sucesso (boolean) and pin_validado_em (timestamp)."
+          comment: "User requested testing of admin actions POST /api/admin/user/{user_id}/action with actions: suspend, activate, flag_for_review - should execute actions and register in history"
 
-  - task: "Delivery status flow with PIN system"
+  - task: "Admin Analytics endpoint"
     implemented: true
-    working: true
+    working: "NA"
     file: "server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
         - working: "NA"
           agent: "user"
-          comment: "User requested testing of complete delivery flow with PIN system"
-        - working: false
-          agent: "testing"
-          comment: "BUG FOUND: Receipt creation fails when trying to finalize delivery directly to 'delivered' status without going through proper flow (pickup_confirmed -> in_transit -> delivered). The create_delivery_receipt function expects pickup_confirmed_at and delivered_at timestamps but they are None, causing ValidationError. The delivery status flow should enforce proper sequence."
-        - working: true
-          agent: "testing"
-          comment: "DELIVERY FLOW FIXED! Complete delivery status flow with PIN system now working correctly. Proper sequence enforced: pending -> matched (PIN generated) -> pickup_confirmed -> in_transit -> delivered (requires PIN validation). Receipt creation handles missing timestamps gracefully. PIN validation is required before delivery finalization. All status transitions working properly."
+          comment: "User requested testing of analytics GET /api/admin/analytics?period=7d - should return performance metrics, top performers, and time-based statistics"
 
-  - task: "Add numpy and pandas dependencies"
+  - task: "Admin Financial Report endpoint"
     implemented: true
-    working: true
-    file: "requirements.txt"
-    stuck_count: 0
-    priority: "medium"
-    needs_retesting: false
-    status_history:
-        - working: "NA"
-          agent: "main"
-          comment: "Added numpy, pandas, and scikit-learn to requirements.txt for security algorithms support"
-        - working: true
-          agent: "testing"
-          comment: "Dependencies verified working - numpy, pandas, scikit-learn successfully imported and functional"
-
-  - task: "Integrate security algorithms imports"
-    implemented: true
-    working: true
-    file: "server.py"
-    stuck_count: 0
-    priority: "medium"
-    needs_retesting: false
-    status_history:
-        - working: "NA"
-          agent: "main"
-          comment: "Added imports for analyze_motoboy_security, optimize_delivery_routes, predict_demand_for_city, moderate_chat_message from security_algorithms.py"
-        - working: true
-          agent: "testing"
-          comment: "Security algorithms imports verified working - all functions imported successfully and functional"
-
-  - task: "Add social profile data models"
-    implemented: true
-    working: true
-    file: "server.py"
-    stuck_count: 0
-    priority: "medium"
-    needs_retesting: false
-    status_history:
-        - working: "NA"
-          agent: "main"
-          comment: "Added Profile, Post, Story, Follow Pydantic models with proper constraints (bio 300 chars, posts 4/day limit, stories 4/day with 24h expiry)"
-        - working: true
-          agent: "testing"
-          comment: "Data models verified working - Profile, Post, Story, Follow models with proper validation constraints"
-
-  - task: "Add MongoDB collections for social features"
-    implemented: true
-    working: true
+    working: "NA"
     file: "server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
         - working: "NA"
-          agent: "main"
-          comment: "Added profiles_collection, posts_collection, stories_collection, follows_collection to MongoDB setup"
-        - working: true
-          agent: "testing"
-          comment: "MongoDB collections verified working - all social feature collections properly configured and accessible"
-
-  - task: "Implement profile helper functions"
-    implemented: true
-    working: true
-    file: "server.py"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: false
-    status_history:
-        - working: "NA"
-          agent: "main"
-          comment: "Added can_create_post_today, can_create_story_today, get_user_profile, update_follow_counts helper functions with daily limits enforcement"
-        - working: true
-          agent: "testing"
-          comment: "Helper functions verified working - daily limits enforced correctly (4 posts/stories per day), profile creation/updates working"
-
-  - task: "Profile management endpoints"
-    implemented: true
-    working: true
-    file: "server.py"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: false
-    status_history:
-        - working: "NA"
-          agent: "main"
-          comment: "Implemented GET /api/profile/{user_id} and PUT /api/profile endpoints with star rating calculation (ranking_score/20), bio validation, gallery photos (max 2)"
-        - working: true
-          agent: "testing"
-          comment: "Profile endpoints verified working - GET returns profile with star rating, PUT updates bio/photos with proper validation (300 char bio limit, max 2 gallery photos)"
-
-  - task: "Follow system endpoints"
-    implemented: true
-    working: true
-    file: "server.py"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: false
-    status_history:
-        - working: "NA"
-          agent: "main"
-          comment: "Implemented POST /api/follow/{user_id} and DELETE /api/follow/{user_id} endpoints with automatic follower/following counts update"
-        - working: true
-          agent: "testing"
-          comment: "Follow system verified working - POST creates follow relationship, DELETE removes it, follower counts updated automatically"
-
-  - task: "Posts and Stories endpoints"
-    implemented: true
-    working: true
-    file: "server.py"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: false
-    status_history:
-        - working: "NA"
-          agent: "main"
-          comment: "Implemented POST /api/posts and POST /api/stories with daily limits (4 each), content validation, and base64 image support"
-        - working: true
-          agent: "testing"
-          comment: "Posts and Stories endpoints verified working - daily limits enforced (4 each), content validation (500 chars posts, 200 chars stories), base64 images supported"
-
-  - task: "Social feed endpoints"
-    implemented: true
-    working: true
-    file: "server.py"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: false
-    status_history:
-        - working: "NA"
-          agent: "main"
-          comment: "Implemented GET /api/feed/posts and GET /api/feed/stories with pagination, user enrichment, and following-based filtering"
-        - working: true
-          agent: "testing"
-          comment: "Social feed endpoints verified working - GET /api/feed/posts and /api/feed/stories return filtered content from followed users with pagination and user enrichment"
-
-  - task: "Security analysis endpoints"
-    implemented: true
-    working: true
-    file: "server.py"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: false
-    status_history:
-        - working: "NA"
-          agent: "main"
-          comment: "Implemented GET /api/security/analyze/{motoboy_id} (admin only), GET /api/demand/predict/{city}, POST /api/routes/optimize, POST /api/chat/moderate endpoints"
-        - working: false
-          agent: "testing"
-          comment: "Mixed results: GET /api/security/analyze/{motoboy_id} returns 500 error (server issue), but GET /api/demand/predict/{city} works, POST /api/chat/moderate works with profanity filtering, POST /api/routes/optimize requires motoboy location but functions correctly after location update. Admin authorization working correctly (403 for non-admin users)."
-        - working: true
-          agent: "testing"
-          comment: "FIXED! Security analysis endpoint now working correctly. GET /api/security/analyze/{motoboy_id} returns comprehensive analysis with risk_analysis (risk_score: 0.0, risk_level: 'low', risk_factors array, recommended_actions), data_consistency check, and overall_security_score: 100.0. Admin authentication working properly (403 for non-admin). All other security endpoints confirmed working: demand prediction, route optimization (with location update), and chat moderation with profanity filtering."
-
-  - task: "Add numpy and pandas dependencies"
-    implemented: true
-    working: true
-    file: "requirements.txt"
-    stuck_count: 0
-    priority: "medium"
-    needs_retesting: false
-    status_history:
-        - working: "NA"
-          agent: "main"
-          comment: "Added numpy, pandas, and scikit-learn to requirements.txt for security algorithms support"
-        - working: true
-          agent: "testing"
-          comment: "Dependencies verified working - numpy, pandas, scikit-learn successfully imported and functional"
-
-  - task: "Integrate security algorithms imports"
-    implemented: true
-    working: true
-    file: "server.py"
-    stuck_count: 0
-    priority: "medium"
-    needs_retesting: false
-    status_history:
-        - working: "NA"
-          agent: "main"
-          comment: "Added imports for analyze_motoboy_security, optimize_delivery_routes, predict_demand_for_city, moderate_chat_message from security_algorithms.py"
-        - working: true
-          agent: "testing"
-          comment: "Security algorithms imports verified working - all functions imported successfully and functional"
-
-  - task: "Add social profile data models"
-    implemented: true
-    working: true
-    file: "server.py"
-    stuck_count: 0
-    priority: "medium"
-    needs_retesting: false
-    status_history:
-        - working: "NA"
-          agent: "main"
-          comment: "Added Profile, Post, Story, Follow Pydantic models with proper constraints (bio 300 chars, posts 4/day limit, stories 4/day with 24h expiry)"
-        - working: true
-          agent: "testing"
-          comment: "Data models verified working - Profile, Post, Story, Follow models with proper validation constraints"
-
-  - task: "Add MongoDB collections for social features"
-    implemented: true
-    working: true
-    file: "server.py"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: false
-    status_history:
-        - working: "NA"
-          agent: "main"
-          comment: "Added profiles_collection, posts_collection, stories_collection, follows_collection to MongoDB setup"
-        - working: true
-          agent: "testing"
-          comment: "MongoDB collections verified working - all social feature collections properly configured and accessible"
-
-  - task: "Implement profile helper functions"
-    implemented: true
-    working: true
-    file: "server.py"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: false
-    status_history:
-        - working: "NA"
-          agent: "main"
-          comment: "Added can_create_post_today, can_create_story_today, get_user_profile, update_follow_counts helper functions with daily limits enforcement"
-        - working: true
-          agent: "testing"
-          comment: "Helper functions verified working - daily limits enforced correctly (4 posts/stories per day), profile creation/updates working"
-
-  - task: "Profile management endpoints"
-    implemented: true
-    working: true
-    file: "server.py"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: false
-    status_history:
-        - working: "NA"
-          agent: "main"
-          comment: "Implemented GET /api/profile/{user_id} and PUT /api/profile endpoints with star rating calculation (ranking_score/20), bio validation, gallery photos (max 2)"
-        - working: true
-          agent: "testing"
-          comment: "Profile endpoints verified working - GET returns profile with star rating, PUT updates bio/photos with proper validation (300 char bio limit, max 2 gallery photos)"
-
-  - task: "Follow system endpoints"
-    implemented: true
-    working: true
-    file: "server.py"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: false
-    status_history:
-        - working: "NA"
-          agent: "main"
-          comment: "Implemented POST /api/follow/{user_id} and DELETE /api/follow/{user_id} endpoints with automatic follower/following counts update"
-        - working: true
-          agent: "testing"
-          comment: "Follow system verified working - POST creates follow relationship, DELETE removes it, follower counts updated automatically"
-
-  - task: "Posts and Stories endpoints"
-    implemented: true
-    working: true
-    file: "server.py"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: false
-    status_history:
-        - working: "NA"
-          agent: "main"
-          comment: "Implemented POST /api/posts and POST /api/stories with daily limits (4 each), content validation, and base64 image support"
-        - working: true
-          agent: "testing"
-          comment: "Posts and Stories endpoints verified working - daily limits enforced (4 each), content validation (500 chars posts, 200 chars stories), base64 images supported"
-
-  - task: "Social feed endpoints"
-    implemented: true
-    working: true
-    file: "server.py"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: false
-    status_history:
-        - working: "NA"
-          agent: "main"
-          comment: "Implemented GET /api/feed/posts and GET /api/feed/stories with pagination, user enrichment, and following-based filtering"
-        - working: true
-          agent: "testing"
-          comment: "Social feed endpoints verified working - GET /api/feed/posts and /api/feed/stories return filtered content from followed users with pagination and user enrichment"
-
-  - task: "Security analysis endpoints"
-    implemented: true
-    working: true
-    file: "server.py"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: false
-    status_history:
-        - working: "NA"
-          agent: "main"
-          comment: "Implemented GET /api/security/analyze/{motoboy_id} (admin only), GET /api/demand/predict/{city}, POST /api/routes/optimize, POST /api/chat/moderate endpoints"
-        - working: false
-          agent: "testing"
-          comment: "Mixed results: GET /api/security/analyze/{motoboy_id} returns 500 error (server issue), but GET /api/demand/predict/{city} works, POST /api/chat/moderate works with profanity filtering, POST /api/routes/optimize requires motoboy location but functions correctly after location update. Admin authorization working correctly (403 for non-admin users)."
-        - working: true
-          agent: "testing"
-          comment: "FIXED! Security analysis endpoint now working correctly. GET /api/security/analyze/{motoboy_id} returns comprehensive analysis with risk_analysis (risk_score: 0.0, risk_level: 'low', risk_factors array, recommended_actions), data_consistency check, and overall_security_score: 100.0. Admin authentication working properly (403 for non-admin). All other security endpoints confirmed working: demand prediction, route optimization (with location update), and chat moderation with profanity filtering."
+          agent: "user"
+          comment: "User requested testing of financial report GET /api/admin/financial-report?period=30d - should return revenue, fees, city breakdown, and payment method statistics"
 
 frontend:
   - task: "Social profile UI components"
