@@ -362,7 +362,7 @@ async def health_check():
 
 @app.post("/api/auth/google")
 async def google_auth(auth_data: dict):
-    """Google OAuth authentication - prepared for integration"""
+    """Google OAuth authentication with demo data"""
     email = auth_data.get('email', 'demo@srboy.com')
     name = auth_data.get('name', 'Demo User')
     user_type = auth_data.get('user_type', 'motoboy')
@@ -379,24 +379,54 @@ async def google_auth(auth_data: dict):
         ).dict()
         
         if user_type == "motoboy":
+            # Demo data for motoboy
+            demo_names = ["Carlos Silva", "João Santos", "Pedro Oliveira"]
+            demo_cities = ["São Roque", "Mairinque", "Araçariguama"]
+            demo_motos = [
+                {"model": "Honda CG 160", "color": "Vermelha", "plate": "SRB-1234"},
+                {"model": "Yamaha Factor 125", "color": "Azul", "plate": "SRB-5678"},
+                {"model": "Honda Titan 150", "color": "Preta", "plate": "SRB-9012"}
+            ]
+            
+            demo_index = random.randint(0, 2)
+            selected_moto = demo_motos[demo_index]
+            
             user_data.update({
-                "ranking_score": 100,
-                "total_deliveries": 0,
-                "success_rate": 0.0,
+                "name": demo_names[demo_index] if name == "Demo User" else name,
+                "ranking_score": random.randint(85, 98),
+                "total_deliveries": random.randint(150, 500),
+                "success_rate": round(random.uniform(0.92, 0.99), 2),
                 "is_available": True,
-                "base_city": "São Roque",
-                "wallet_balance": 0.0,
-                "moto_model": "Honda CG 160",
-                "moto_color": "Vermelha",
-                "license_plate": "ABC-1234"
+                "base_city": demo_cities[demo_index],
+                "wallet_balance": round(random.uniform(250.0, 800.0), 2),
+                "moto_model": selected_moto["model"],
+                "moto_color": selected_moto["color"],
+                "license_plate": selected_moto["plate"]
             })
+            
         elif user_type == "lojista":
+            # Demo data for lojista
+            demo_lojas = [
+                {"name": "Maria Santos", "fantasy": "Farmácia Saúde Total", "category": "Farmácia"},
+                {"name": "José Silva", "fantasy": "Pizzaria Bella Vista", "category": "Restaurante"},
+                {"name": "Ana Costa", "fantasy": "Boutique Elegante", "category": "Loja de Roupas"}
+            ]
+            
+            demo_index = random.randint(0, 2)
+            selected_loja = demo_lojas[demo_index]
+            
             user_data.update({
-                "loja_wallet_balance": 150.0,
-                "fantasy_name": f"Loja {name}"
+                "name": selected_loja["name"] if name == "Demo User" else name,
+                "loja_wallet_balance": round(random.uniform(300.0, 1200.0), 2),
+                "fantasy_name": selected_loja["fantasy"],
+                "category": selected_loja["category"],
+                "total_deliveries": random.randint(50, 200)
             })
         
         users_collection.insert_one(user_data)
+        
+        # Create demo profile with sample data
+        create_demo_profile(user_data)
     
     token_data = {
         "user_id": user_data["id"],
@@ -415,7 +445,9 @@ async def google_auth(auth_data: dict):
             "name": user_data["name"],
             "user_type": user_data["user_type"],
             "ranking_score": user_data.get("ranking_score"),
-            "wallet_balance": user_data.get("wallet_balance", user_data.get("loja_wallet_balance", 0))
+            "wallet_balance": user_data.get("wallet_balance", user_data.get("loja_wallet_balance", 0)),
+            "fantasy_name": user_data.get("fantasy_name"),
+            "total_deliveries": user_data.get("total_deliveries", 0)
         }
     }
 
