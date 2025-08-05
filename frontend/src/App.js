@@ -1742,6 +1742,56 @@ function DeliveryCard({ delivery, userType, onUpdateStatus, onUpdateWaiting }) {
     setShowWaitingInput(false);
   };
 
+  const handlePinValidation = async () => {
+    if (!pin || pin.length !== 4) {
+      setPinError('PIN deve ter 4 dígitos');
+      return;
+    }
+
+    setPinLoading(true);
+    setPinError('');
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || process.env.REACT_APP_BACKEND_URL}/api/deliveries/${delivery.id}/validate-pin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ pin })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // PIN validado com sucesso, agora pode finalizar entrega
+        setShowPinModal(false);
+        setPin('');
+        setPinError('');
+        setPinAttempts(0);
+        await onUpdateStatus(delivery.id, 'delivered');
+      } else {
+        setPinError(data.message);
+        setPinAttempts(data.attempts || 0);
+        if (data.code === 'PIN_BLOCKED') {
+          setShowPinModal(false);
+        }
+      }
+    } catch (error) {
+      setPinError('Erro ao validar PIN. Tente novamente.');
+    } finally {
+      setPinLoading(false);
+    }
+  };
+
+  const handleDeliveryAttempt = () => {
+    if (delivery.pin_confirmacao && userType === 'motoboy') {
+      setShowPinModal(true);
+    } else {
+      onUpdateStatus(delivery.id, 'delivered');
+    }
+  };
+
   return (
     <div className="border border-slate-200 rounded-lg p-6 bg-white hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-4">
