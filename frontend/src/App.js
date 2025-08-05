@@ -54,6 +54,18 @@ function App() {
   const [showRegistration, setShowRegistration] = useState(false);
   const [registrationType, setRegistrationType] = useState('');
 
+  // Social profile states
+  const [userProfile, setUserProfile] = useState(null);
+  const [viewingProfile, setViewingProfile] = useState(null);
+  const [profilePosts, setProfilePosts] = useState([]);
+  const [profileStories, setProfileStories] = useState([]);
+  const [feedPosts, setFeedPosts] = useState([]);
+  const [feedStories, setFeedStories] = useState([]);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [showCreatePost, setShowCreatePost] = useState(false);
+  const [showCreateStory, setShowCreateStory] = useState(false);
+
   // Cities served
   const CITIES = ["Araçariguama", "São Roque", "Mairinque", "Alumínio", "Ibiúna"];
 
