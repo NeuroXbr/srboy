@@ -795,11 +795,9 @@ async def update_delivery_status(delivery_id: str, status_data: dict, credential
                     )
                 
                 # Check if PIN has been successfully validated
-                # PIN is considered validated when there's a PIN but no recent failed attempts
-                # We need to track successful validation differently
-                has_recent_failed_attempts = delivery.get("pin_tentativas", 0) > 0
+                pin_validado = delivery.get("pin_validado_com_sucesso", False)
                 
-                if has_recent_failed_attempts:
+                if not pin_validado:
                     raise HTTPException(
                         status_code=400, 
                         detail="PIN de confirmação deve ser validado antes de finalizar a entrega. Use o endpoint /validate-pin primeiro."
