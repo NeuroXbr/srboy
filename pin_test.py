@@ -482,9 +482,7 @@ class PINSystemTester:
         ]
         
         for test in tests:
-            if not test():
-                print(f"\n❌ Test failed, stopping PIN system tests")
-                break
+            test()  # Continue with all tests even if some fail
         
         # Print summary
         print("\n" + "=" * 60)
