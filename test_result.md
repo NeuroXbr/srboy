@@ -210,12 +210,13 @@ metadata:
 
 test_plan:
   current_focus:
-    - "PIN generation on delivery acceptance"
-    - "PIN validation endpoint"
-    - "PIN blocking after 3 attempts"
-    - "Delivery finalization with PIN validation"
-    - "PIN data structure verification"
-    - "Delivery status flow with PIN system"
+    - "Admin Login endpoint"
+    - "Admin Dashboard endpoint"
+    - "Admin User Management endpoint"
+    - "Admin Delivery Management endpoint"
+    - "Admin User Actions endpoint"
+    - "Admin Analytics endpoint"
+    - "Admin Financial Report endpoint"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
