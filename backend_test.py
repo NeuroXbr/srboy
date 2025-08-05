@@ -531,6 +531,14 @@ class SrBoyAPITester:
             self.log_test("Route Optimization", False, "No motoboy token available")
             return False
 
+        # First update motoboy location
+        location_data = {"lat": -23.5320, "lng": -47.1360}
+        location_success, location_status, location_response = self.make_request('PUT', '/api/motoboy/location', location_data, self.motoboy_token)
+        
+        if not location_success:
+            self.log_test("Route Optimization", False, f"Failed to update location: {location_status} - {location_response}")
+            return False
+
         route_data = {
             "deliveries": [
                 {
