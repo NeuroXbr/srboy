@@ -877,8 +877,602 @@ function App() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Social Tab */}
+          <TabsContent value="social" className="space-y-6">
+            {user && (
+              <div className="grid md:grid-cols-3 gap-6">
+                {/* Profile Card */}
+                <Card className="md:col-span-2">
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <Users className="h-5 w-5 text-blue-500" />
+                        Meu Perfil Social
+                      </span>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => {
+                          fetchProfile();
+                          setShowEditProfile(true);
+                        }}
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
+                        Editar
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {userProfile ? (
+                      <div className="space-y-4">
+                        {/* Profile Header */}
+                        <div className="flex items-start gap-4">
+                          <div className="relative">
+                            <Avatar className="w-20 h-20">
+                              <AvatarImage 
+                                src={userProfile.profile?.profile_photo} 
+                                alt={userProfile.user?.name} 
+                              />
+                              <AvatarFallback className="text-2xl font-semibold bg-gradient-to-r from-purple-500 to-pink-500 text-white">
+                                {userProfile.user?.name?.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h3 className="text-xl font-bold">{userProfile.user?.name}</h3>
+                              <Badge variant="outline" className="text-xs">
+                                {userProfile.user?.user_type}
+                              </Badge>
+                            </div>
+                            
+                            {/* Star Rating */}
+                            <div className="flex items-center gap-1 mb-2">
+                              {renderStars(userProfile.user?.star_rating || 3)}
+                              <span className="text-sm text-slate-600 ml-2">
+                                {userProfile.user?.star_rating || 3}/5 estrelas
+                              </span>
+                            </div>
+                            
+                            {/* Stats */}
+                            <div className="flex items-center gap-6 text-sm">
+                              <div className="flex items-center gap-1">
+                                <strong>{userProfile.profile?.followers_count || 0}</strong>
+                                <span className="text-slate-600">seguidores</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <strong>{userProfile.profile?.following_count || 0}</strong>
+                                <span className="text-slate-600">seguindo</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <strong>{userProfile.recent_posts?.length || 0}</strong>
+                                <span className="text-slate-600">posts</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Bio */}
+                        <div>
+                          <p className="text-slate-700">
+                            {userProfile.profile?.bio || "Nenhuma bio adicionada ainda."}
+                          </p>
+                        </div>
+                        
+                        {/* Gallery Photos */}
+                        {userProfile.profile?.gallery_photos && userProfile.profile.gallery_photos.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-medium text-slate-600 mb-2">Galeria</h4>
+                            <div className="flex gap-2">
+                              {userProfile.profile.gallery_photos.map((photo, index) => (
+                                <img 
+                                  key={index}
+                                  src={photo}
+                                  alt={`Galeria ${index + 1}`}
+                                  className="w-16 h-16 rounded-lg object-cover"
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <Users className="h-12 w-12 mx-auto mb-4 text-slate-300" />
+                        <p className="text-slate-500">Carregando perfil...</p>
+                        <Button 
+                          onClick={() => fetchProfile()} 
+                          className="mt-4"
+                          variant="outline"
+                        >
+                          Carregar Perfil
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Quick Actions */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium text-slate-600">Ações Rápidas</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Button 
+                      className="w-full flex items-center gap-2" 
+                      onClick={() => {
+                        fetchProfile();
+                        setShowCreatePost(true);
+                      }}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Criar Post
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="w-full flex items-center gap-2"
+                      onClick={() => {
+                        fetchProfile();
+                        setShowCreateStory(true);
+                      }}
+                    >
+                      <Image className="h-4 w-4" />
+                      Criar Story
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="w-full flex items-center gap-2"
+                      onClick={() => {
+                        fetchFeedPosts();
+                        fetchFeedStories();
+                      }}
+                    >
+                      <Eye className="h-4 w-4" />
+                      Ver Feed
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Posts Feed */}
+            {feedPosts.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageCircle className="h-5 w-5 text-blue-500" />
+                    Feed de Posts
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {feedPosts.slice(0, 5).map(post => (
+                    <div key={post.id} className="border-b border-slate-200 pb-4 last:border-b-0">
+                      <div className="flex items-center gap-3 mb-3">
+                        <Avatar className="w-8 h-8">
+                          <AvatarImage src={post.author?.profile_photo} alt={post.author?.name} />
+                          <AvatarFallback className="text-xs bg-gradient-to-r from-purple-500 to-pink-500 text-white">
+                            {post.author?.name?.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium text-sm">{post.author?.name}</p>
+                          <p className="text-xs text-slate-500">
+                            {new Date(post.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-slate-700 text-sm">{post.content}</p>
+                      {post.image && (
+                        <img 
+                          src={post.image} 
+                          alt="Post" 
+                          className="mt-2 rounded-lg max-h-48 object-cover"
+                        />
+                      )}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Stories Feed */}
+            {feedStories.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Image className="h-5 w-5 text-purple-500" />
+                    Stories Ativos
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex gap-3 overflow-x-auto pb-2">
+                    {feedStories.slice(0, 10).map(story => (
+                      <div key={story.id} className="flex-shrink-0 text-center">
+                        <Avatar className="w-12 h-12 ring-2 ring-purple-500 ring-offset-2 mb-1">
+                          <AvatarImage src={story.author?.profile_photo} alt={story.author?.name} />
+                          <AvatarFallback className="text-xs bg-gradient-to-r from-purple-500 to-pink-500 text-white">
+                            {story.author?.name?.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <p className="text-xs text-slate-600 max-w-[60px] truncate">
+                          {story.author?.name}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
         </Tabs>
       </div>
+
+      {/* Modals */}
+      {showEditProfile && (
+        <EditProfileModal 
+          profile={userProfile}
+          onClose={() => setShowEditProfile(false)}
+          onUpdate={updateProfile}
+          convertToBase64={convertToBase64}
+        />
+      )}
+
+      {showCreatePost && (
+        <CreatePostModal 
+          onClose={() => setShowCreatePost(false)}
+          onCreate={createPost}
+          convertToBase64={convertToBase64}
+        />
+      )}
+
+      {showCreateStory && (
+        <CreateStoryModal 
+          onClose={() => setShowCreateStory(false)}
+          onCreate={createStory}
+          convertToBase64={convertToBase64}
+        />
+      )}
+    </div>
+  );
+}
+
+// Edit Profile Modal Component
+function EditProfileModal({ profile, onClose, onUpdate, convertToBase64 }) {
+  const [formData, setFormData] = useState({
+    bio: profile?.profile?.bio || '',
+    profile_photo: '',
+    cover_photo: '',
+    gallery_photos: profile?.profile?.gallery_photos || []
+  });
+  const [loading, setLoading] = useState(false);
+
+  const handleFileChange = async (field, file) => {
+    if (file) {
+      try {
+        const base64 = await convertToBase64(file);
+        if (field === 'gallery_photos') {
+          if (formData.gallery_photos.length < 2) {
+            setFormData(prev => ({
+              ...prev,
+              gallery_photos: [...prev.gallery_photos, base64]
+            }));
+          } else {
+            alert('Máximo 2 fotos na galeria');
+          }
+        } else {
+          setFormData(prev => ({
+            ...prev,
+            [field]: base64
+          }));
+        }
+      } catch (error) {
+        console.error('Erro ao converter imagem:', error);
+      }
+    }
+  };
+
+  const removeGalleryPhoto = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      gallery_photos: prev.gallery_photos.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (formData.bio.length > 300) {
+      alert('Bio não pode exceder 300 caracteres');
+      return;
+    }
+
+    setLoading(true);
+    await onUpdate(formData);
+    setLoading(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Editar Perfil</span>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              ×
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Bio (máx. 300 caracteres)</label>
+              <Textarea
+                value={formData.bio}
+                onChange={(e) => setFormData(prev => ({ ...prev, bio: e.target.value }))}
+                placeholder="Conte um pouco sobre você..."
+                maxLength={300}
+                rows={3}
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                {formData.bio.length}/300 caracteres
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Foto de Perfil</label>
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleFileChange('profile_photo', e.target.files[0])}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Foto de Capa</label>
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleFileChange('cover_photo', e.target.files[0])}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Galeria ({formData.gallery_photos.length}/2 fotos)
+              </label>
+              {formData.gallery_photos.length < 2 && (
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleFileChange('gallery_photos', e.target.files[0])}
+                />
+              )}
+              
+              {formData.gallery_photos.length > 0 && (
+                <div className="flex gap-2 mt-2">
+                  {formData.gallery_photos.map((photo, index) => (
+                    <div key={index} className="relative">
+                      <img 
+                        src={photo}
+                        alt={`Galeria ${index + 1}`}
+                        className="w-16 h-16 rounded object-cover"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute -top-1 -right-1 w-5 h-5 p-0"
+                        onClick={() => removeGalleryPhoto(index)}
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <Button type="submit" disabled={loading} className="flex-1">
+                {loading ? 'Salvando...' : 'Salvar'}
+              </Button>
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancelar
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Create Post Modal Component
+function CreatePostModal({ onClose, onCreate, convertToBase64 }) {
+  const [content, setContent] = useState('');
+  const [image, setImage] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleFileChange = async (file) => {
+    if (file) {
+      try {
+        const base64 = await convertToBase64(file);
+        setImage(base64);
+      } catch (error) {
+        console.error('Erro ao converter imagem:', error);
+      }
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!content.trim() && !image) {
+      alert('Adicione um texto ou uma imagem');
+      return;
+    }
+
+    if (content.length > 500) {
+      alert('Post não pode exceder 500 caracteres');
+      return;
+    }
+
+    setLoading(true);
+    await onCreate({ content: content.trim(), image });
+    setLoading(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Criar Post</span>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              ×
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Conteúdo (máx. 500 caracteres)</label>
+              <Textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="O que está acontecendo?"
+                maxLength={500}
+                rows={4}
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                {content.length}/500 caracteres
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Imagem (opcional)</label>
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleFileChange(e.target.files[0])}
+              />
+              {image && (
+                <img 
+                  src={image}
+                  alt="Preview"
+                  className="mt-2 w-full max-h-48 object-cover rounded"
+                />
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <Button type="submit" disabled={loading} className="flex-1">
+                <Send className="h-4 w-4 mr-2" />
+                {loading ? 'Publicando...' : 'Publicar'}
+              </Button>
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancelar
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Create Story Modal Component  
+function CreateStoryModal({ onClose, onCreate, convertToBase64 }) {
+  const [content, setContent] = useState('');
+  const [image, setImage] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleFileChange = async (file) => {
+    if (file) {
+      try {
+        const base64 = await convertToBase64(file);
+        setImage(base64);
+      } catch (error) {
+        console.error('Erro ao converter imagem:', error);
+      }
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!content.trim() && !image) {
+      alert('Adicione um texto ou uma imagem');
+      return;
+    }
+
+    if (content.length > 200) {
+      alert('Story não pode exceder 200 caracteres');
+      return;
+    }
+
+    setLoading(true);
+    await onCreate({ content: content.trim(), image });
+    setLoading(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Criar Story</span>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              ×
+            </Button>
+          </CardTitle>
+          <p className="text-sm text-slate-600">Expira em 24 horas</p>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Conteúdo (máx. 200 caracteres)</label>
+              <Textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Compartilhe um momento..."
+                maxLength={200}
+                rows={3}
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                {content.length}/200 caracteres
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Imagem (opcional)</label>
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleFileChange(e.target.files[0])}
+              />
+              {image && (
+                <img 
+                  src={image}
+                  alt="Preview"
+                  className="mt-2 w-full max-h-48 object-cover rounded"
+                />
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <Button type="submit" disabled={loading} className="flex-1">
+                <Send className="h-4 w-4 mr-2" />
+                {loading ? 'Publicando...' : 'Publicar Story'}
+              </Button>
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancelar
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }
