@@ -102,6 +102,12 @@ class Delivery(BaseModel):
     description: Optional[str] = None
     priority_score: Optional[int] = Field(default=0)
     product_description: Optional[str] = None
+    
+    # PIN Security System
+    pin_completo: Optional[str] = None  # 8 digits alphanumeric code
+    pin_confirmacao: Optional[str] = None  # Last 4 digits for confirmation
+    pin_tentativas: int = 0  # Number of PIN attempts
+    pin_bloqueado: bool = False  # PIN blocked after 3 attempts
 
 class DeliveryReceipt(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
