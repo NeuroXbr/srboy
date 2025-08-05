@@ -212,25 +212,7 @@ class PINSystemTester:
             self.log_test("Finalize Without PIN", False, "No motoboy token or delivery ID available")
             return False
 
-        # First, let's make an incorrect PIN attempt to change pin_tentativas from 0
-        pin_data = {"pin": "XXXX"}  # 4 characters, but wrong PIN
-        pin_success, pin_status, pin_response = self.make_request('POST', f'/api/deliveries/{self.test_delivery_id}/validate-pin', pin_data, self.motoboy_token)
-        
-        print(f"   DEBUG: PIN validation response - Status: {pin_status}, Response: {pin_response}")
-        
-        # Check the delivery state after incorrect PIN
-        delivery_success, delivery_status, delivery_data = self.make_request('GET', '/api/deliveries', token=self.motoboy_token)
-        if delivery_success:
-            test_delivery = None
-            for delivery in delivery_data.get('deliveries', []):
-                if delivery['id'] == self.test_delivery_id:
-                    test_delivery = delivery
-                    break
-            
-            if test_delivery:
-                print(f"   DEBUG: After incorrect PIN - pin_tentativas: {test_delivery.get('pin_tentativas')}, pin_bloqueado: {test_delivery.get('pin_bloqueado')}, pin_confirmacao: {test_delivery.get('pin_confirmacao')}")
-        
-        # Now try to finalize - should fail because PIN hasn't been validated correctly
+        # Try to finalize directly without any PIN validation attempts
         status_data = {"status": "delivered"}
         success, status, data = self.make_request('PUT', f'/api/deliveries/{self.test_delivery_id}/status', status_data, self.motoboy_token, expected_status=400)
         
@@ -246,12 +228,17 @@ class PINSystemTester:
                 success = True
                 details = f"✅ Correctly blocked with status 400: {data.get('detail', 'Unknown error')}"
         elif status == 500:
-            # This indicates the PIN validation logic is not working correctly
+            # This indicates a bug in the receipt creation logic
             success = False
-            details = f"❌ BUG FOUND: PIN validation logic failed - delivery was allowed to proceed to receipt creation despite invalid PIN. This should have been blocked with 400 error."
+            details = f"❌ BUG FOUND: Receipt creation fails due to missing timestamps. The delivery status flow should require proper sequence (pickup_confirmed -> in_transit -> delivered)."
         else:
-            success = False
-            details = f"Expected 400 with PIN validation error, got {status}: {data}"
+            # If status is 200, it means the delivery was finalized without PIN validation - this is a bug
+            if status == 200:
+                success = False
+                details = f"❌ CRITICAL BUG: Delivery was finalized without PIN validation! This is a security issue."
+            else:
+                success = False
+                details = f"Expected 400 with PIN validation error, got {status}: {data}"
         
         self.log_test("Finalize Without PIN", success, details)
         return success
