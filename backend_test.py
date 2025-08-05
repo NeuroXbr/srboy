@@ -10,7 +10,7 @@ import json
 from datetime import datetime
 
 class SuperBoyAPITester:
-    def __init__(self, base_url="https://c81f6a95-b470-4ed1-93b5-ec915bd73bf3.preview.emergentagent.com"):
+    def __init__(self, base_url="https://3b17a2db-24f5-40f1-9939-0c2c2ef10d9a.preview.emergentagent.com"):
         self.base_url = base_url
         self.motoboy_token = None
         self.lojista_token = None
