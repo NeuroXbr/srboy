@@ -66,6 +66,14 @@ function App() {
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [showCreateStory, setShowCreateStory] = useState(false);
 
+  // Admin dashboard states
+  const [adminDashboard, setAdminDashboard] = useState(null);
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [adminDeliveries, setAdminDeliveries] = useState([]);
+  const [adminAnalytics, setAdminAnalytics] = useState(null);
+  const [adminFinancial, setAdminFinancial] = useState(null);
+  const [adminActiveSection, setAdminActiveSection] = useState('overview');
+
   // Cities served
   const CITIES = ["Araçariguama", "São Roque", "Mairinque", "Alumínio", "Ibiúna"];
 
