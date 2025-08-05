@@ -1226,7 +1226,18 @@ class SrBoyAPITester:
         print("-" * 30)
         self.test_motoboy_authentication()
         self.test_lojista_authentication()
-        self.test_admin_authentication()
+        
+        # ADMIN SYSTEM TESTS - NEW
+        print("\n🔐 Admin System Tests")
+        print("-" * 25)
+        self.test_admin_login()
+        self.test_admin_dashboard()
+        self.test_admin_dashboard_unauthorized()
+        self.test_admin_users_management()
+        self.test_admin_deliveries_management()
+        self.test_admin_user_actions()
+        self.test_admin_analytics()
+        self.test_admin_financial_report()
         
         # PIN SYSTEM TESTS - CORRECTED VERSION
         print("\n🔐 PIN System Tests (Corrected)")
