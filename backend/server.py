@@ -761,6 +761,491 @@ async def get_rankings(city: Optional[str] = None):
     
     return {"rankings": rankings}
 
+# Social Profile Endpoints
+@app.get("/api/profile/{user_id}")
+async def get_profile(user_id: str, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get user profile with social features"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        
+        # Get user basic info
+        user = users_collection.find_one({"id": user_id})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Get profile info
+        profile = get_user_profile(user_id)
+        if not profile:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        
+        # Check if current user is following this user
+        current_user_id = payload["user_id"]
+        is_following = follows_collection.find_one({
+            "follower_id": current_user_id,
+            "followed_id": user_id
+        }) is not None
+        
+        # Get user's ranking score (star rating)
+        ranking_score = user.get("ranking_score", 100)
+        star_rating = min(5, max(1, ranking_score // 20))  # Convert 0-100 to 1-5 stars
+        
+        # Get recent posts
+        recent_posts = list(posts_collection.find(
+            {"user_id": user_id}
+        ).sort("created_at", -1).limit(6))
+        
+        for post in recent_posts:
+            post.pop("_id", None)
+        
+        # Get active stories (not expired)
+        active_stories = list(stories_collection.find({
+            "user_id": user_id,
+            "expires_at": {"$gt": datetime.now()}
+        }).sort("created_at", -1))
+        
+        for story in active_stories:
+            story.pop("_id", None)
+        
+        user.pop("_id", None)
+        
+        return {
+            "user": {
+                "id": user["id"],
+                "name": user["name"],
+                "user_type": user["user_type"],
+                "fantasy_name": user.get("fantasy_name"),
+                "base_city": user.get("base_city"),
+                "star_rating": star_rating,
+                "ranking_score": ranking_score,
+                "total_deliveries": user.get("total_deliveries", 0)
+            },
+            "profile": profile,
+            "is_following": is_following,
+            "recent_posts": recent_posts,
+            "active_stories": active_stories
+        }
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.put("/api/profile")
+async def update_profile(profile_data: dict, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Update user profile"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload["user_id"]
+        
+        # Validate bio length
+        bio = profile_data.get("bio", "")
+        if len(bio) > 300:
+            raise HTTPException(status_code=400, detail="Bio cannot exceed 300 characters")
+        
+        # Validate gallery photos (max 2)
+        gallery_photos = profile_data.get("gallery_photos", [])
+        if len(gallery_photos) > 2:
+            raise HTTPException(status_code=400, detail="Maximum 2 gallery photos allowed")
+        
+        update_data = {
+            "bio": bio,
+            "updated_at": datetime.now()
+        }
+        
+        # Update photos if provided
+        if "profile_photo" in profile_data:
+            update_data["profile_photo"] = profile_data["profile_photo"]
+        
+        if "cover_photo" in profile_data:
+            update_data["cover_photo"] = profile_data["cover_photo"]
+        
+        if "gallery_photos" in profile_data:
+            update_data["gallery_photos"] = gallery_photos
+        
+        # Get or create profile
+        existing_profile = get_user_profile(user_id)
+        
+        profiles_collection.update_one(
+            {"user_id": user_id},
+            {"$set": update_data},
+            upsert=True
+        )
+        
+        return {"message": "Profile updated successfully"}
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.post("/api/follow/{user_id}")
+async def follow_user(user_id: str, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Follow a user"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        follower_id = payload["user_id"]
+        
+        if follower_id == user_id:
+            raise HTTPException(status_code=400, detail="Cannot follow yourself")
+        
+        # Check if user exists
+        user = users_collection.find_one({"id": user_id})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Check if already following
+        existing_follow = follows_collection.find_one({
+            "follower_id": follower_id,
+            "followed_id": user_id
+        })
+        
+        if existing_follow:
+            raise HTTPException(status_code=400, detail="Already following this user")
+        
+        # Create follow relationship
+        follow_data = Follow(
+            follower_id=follower_id,
+            followed_id=user_id
+        ).dict()
+        
+        follows_collection.insert_one(follow_data)
+        
+        # Update follow counts
+        update_follow_counts(follower_id)
+        update_follow_counts(user_id)
+        
+        return {"message": "User followed successfully"}
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.delete("/api/follow/{user_id}")
+async def unfollow_user(user_id: str, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Unfollow a user"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        follower_id = payload["user_id"]
+        
+        # Remove follow relationship
+        result = follows_collection.delete_one({
+            "follower_id": follower_id,
+            "followed_id": user_id
+        })
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=400, detail="Not following this user")
+        
+        # Update follow counts
+        update_follow_counts(follower_id)
+        update_follow_counts(user_id)
+        
+        return {"message": "User unfollowed successfully"}
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.post("/api/posts")
+async def create_post(post_data: dict, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Create a new post (limit: 4 per day)"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload["user_id"]
+        
+        # Check daily limit
+        if not can_create_post_today(user_id):
+            raise HTTPException(status_code=400, detail="Daily post limit reached (4 posts per day)")
+        
+        # Validate content length
+        content = post_data.get("content", "")
+        if len(content) > 500:
+            raise HTTPException(status_code=400, detail="Post content cannot exceed 500 characters")
+        
+        if not content and not post_data.get("image"):
+            raise HTTPException(status_code=400, detail="Post must contain either content or image")
+        
+        # Create post
+        post = Post(
+            user_id=user_id,
+            content=content,
+            image=post_data.get("image")
+        ).dict()
+        
+        posts_collection.insert_one(post)
+        post.pop("_id", None)
+        
+        return {"message": "Post created successfully", "post": post}
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.post("/api/stories")
+async def create_story(story_data: dict, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Create a new story (limit: 4 per day, expires in 24h)"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload["user_id"]
+        
+        # Check daily limit
+        if not can_create_story_today(user_id):
+            raise HTTPException(status_code=400, detail="Daily story limit reached (4 stories per day)")
+        
+        # Validate content
+        content = story_data.get("content", "")
+        if len(content) > 200:
+            raise HTTPException(status_code=400, detail="Story content cannot exceed 200 characters")
+        
+        if not content and not story_data.get("image"):
+            raise HTTPException(status_code=400, detail="Story must contain either content or image")
+        
+        # Create story
+        story = Story(
+            user_id=user_id,
+            content=content,
+            image=story_data.get("image")
+        ).dict()
+        
+        stories_collection.insert_one(story)
+        story.pop("_id", None)
+        
+        return {"message": "Story created successfully", "story": story}
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.get("/api/feed/posts")
+async def get_posts_feed(page: int = 1, limit: int = 20, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get posts feed from followed users"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload["user_id"]
+        
+        # Get followed users
+        followed_users = list(follows_collection.find(
+            {"follower_id": user_id}
+        ).limit(1000))  # Reasonable limit
+        
+        followed_ids = [follow["followed_id"] for follow in followed_users]
+        followed_ids.append(user_id)  # Include own posts
+        
+        skip = (page - 1) * limit
+        
+        # Get posts from followed users
+        posts = list(posts_collection.find(
+            {"user_id": {"$in": followed_ids}}
+        ).sort("created_at", -1).skip(skip).limit(limit))
+        
+        # Enrich posts with user information
+        enriched_posts = []
+        for post in posts:
+            post.pop("_id", None)
+            
+            # Get post author info
+            author = users_collection.find_one({"id": post["user_id"]})
+            if author:
+                post["author"] = {
+                    "id": author["id"],
+                    "name": author["name"],
+                    "user_type": author["user_type"],
+                    "fantasy_name": author.get("fantasy_name")
+                }
+                
+                # Get author's profile photo
+                profile = profiles_collection.find_one({"user_id": post["user_id"]})
+                if profile:
+                    post["author"]["profile_photo"] = profile.get("profile_photo")
+            
+            enriched_posts.append(post)
+        
+        return {"posts": enriched_posts}
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.get("/api/feed/stories")
+async def get_stories_feed(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get stories feed from followed users (only non-expired)"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload["user_id"]
+        
+        # Get followed users
+        followed_users = list(follows_collection.find(
+            {"follower_id": user_id}
+        ).limit(1000))
+        
+        followed_ids = [follow["followed_id"] for follow in followed_users]
+        followed_ids.append(user_id)  # Include own stories
+        
+        # Get non-expired stories from followed users
+        stories = list(stories_collection.find({
+            "user_id": {"$in": followed_ids},
+            "expires_at": {"$gt": datetime.now()}
+        }).sort("created_at", -1).limit(50))
+        
+        # Enrich stories with user information
+        enriched_stories = []
+        for story in stories:
+            story.pop("_id", None)
+            
+            # Get story author info
+            author = users_collection.find_one({"id": story["user_id"]})
+            if author:
+                story["author"] = {
+                    "id": author["id"],
+                    "name": author["name"],
+                    "user_type": author["user_type"],
+                    "fantasy_name": author.get("fantasy_name")
+                }
+                
+                # Get author's profile photo
+                profile = profiles_collection.find_one({"user_id": story["user_id"]})
+                if profile:
+                    story["author"]["profile_photo"] = profile.get("profile_photo")
+            
+            enriched_stories.append(story)
+        
+        return {"stories": enriched_stories}
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# Security & Analysis Endpoints
+@app.get("/api/security/analyze/{motoboy_id}")
+async def analyze_motoboy_security_endpoint(motoboy_id: str, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Analyze motoboy security (admin only)"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_type = payload["user_type"]
+        
+        if user_type != "admin":
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        # Get motoboy data
+        motoboy = users_collection.find_one({"id": motoboy_id, "user_type": "motoboy"})
+        if not motoboy:
+            raise HTTPException(status_code=404, detail="Motoboy not found")
+        
+        # Get delivery history
+        deliveries = list(deliveries_collection.find({"motoboy_id": motoboy_id}).sort("created_at", -1).limit(100))
+        for delivery in deliveries:
+            delivery.pop("_id", None)
+        
+        motoboy["delivery_history"] = deliveries
+        motoboy["location_history"] = motoboy.get("location_history", [])
+        
+        # Analyze security
+        analysis = analyze_motoboy_security(motoboy)
+        
+        return {"analysis": analysis}
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.get("/api/demand/predict/{city}")
+async def predict_demand_endpoint(city: str):
+    """Predict demand for a city"""
+    if city not in CITIES_SERVED:
+        raise HTTPException(status_code=400, detail="City not served")
+    
+    prediction = predict_demand_for_city(city)
+    return {"prediction": prediction}
+
+@app.post("/api/routes/optimize")
+async def optimize_routes_endpoint(route_data: dict, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Optimize delivery routes for motoboy"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload["user_id"]
+        user_type = payload["user_type"]
+        
+        if user_type != "motoboy":
+            raise HTTPException(status_code=403, detail="Only motoboys can optimize routes")
+        
+        # Get motoboy location
+        motoboy = users_collection.find_one({"id": user_id})
+        if not motoboy or not motoboy.get("current_location"):
+            raise HTTPException(status_code=400, detail="Location required for route optimization")
+        
+        # Get assigned deliveries
+        deliveries = list(deliveries_collection.find({
+            "motoboy_id": user_id,
+            "status": {"$in": ["matched", "pickup_confirmed"]}
+        }))
+        
+        for delivery in deliveries:
+            delivery.pop("_id", None)
+        
+        if not deliveries:
+            return {"message": "No deliveries to optimize", "optimized_route": []}
+        
+        optimization = optimize_delivery_routes(deliveries, motoboy["current_location"])
+        return {"optimization": optimization}
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.post("/api/chat/moderate")
+async def moderate_chat_endpoint(message_data: dict, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Moderate chat message"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload["user_id"]
+        
+        message = message_data.get("message", "")
+        city = message_data.get("city", "")
+        
+        if not message or not city:
+            raise HTTPException(status_code=400, detail="Message and city required")
+        
+        moderation = moderate_chat_message(message, user_id, city)
+        
+        # Store moderated message if approved
+        if moderation["action"] in ["approved", "filtered"]:
+            chat_message = {
+                "id": str(uuid.uuid4()),
+                "user_id": user_id,
+                "city": city,
+                "message": moderation["filtered_message"],
+                "original_message": message,
+                "moderation_flags": moderation["flags"],
+                "created_at": datetime.now()
+            }
+            chats_collection.insert_one(chat_message)
+        
+        return {"moderation": moderation}
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
