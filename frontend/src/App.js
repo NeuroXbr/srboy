@@ -461,7 +461,7 @@ function App() {
                 <img 
                   src="/srboy-logo.png" 
                   alt="SrBoy Logo" 
-                  className="h-24 w-auto"
+                  className="h-32 w-auto"
                 />
               </div>
               <h1 className="text-6xl font-bold text-white mb-6">
