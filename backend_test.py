@@ -989,6 +989,18 @@ class SrBoyAPITester:
         self.test_lojista_authentication()
         self.test_admin_authentication()
         
+        # PIN SYSTEM TESTS - CORRECTED VERSION
+        print("\n🔐 PIN System Tests (Corrected)")
+        print("-" * 35)
+        self.test_pin_generation_on_accept()
+        self.test_pin_validation_incorrect()
+        self.test_pin_blocking_after_3_attempts()
+        self.test_pin_validation_correct()
+        self.test_delivery_finalization_without_pin_validation()
+        self.test_delivery_finalization_after_pin_validation()
+        self.test_pin_data_structure_verification()
+        self.test_pin_validado_com_sucesso_field()
+        
         # Social Profile System Tests
         print("\n👤 Social Profile System Tests")
         print("-" * 35)
