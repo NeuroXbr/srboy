@@ -1629,6 +1629,542 @@ def create_demo_profile(user_data):
         ).dict()
         stories_collection.insert_one(story_data)
 
+# ============================================
+# ADMIN DASHBOARD ENDPOINTS
+# ============================================
+
+@app.post("/api/admin/login")
+async def admin_login(auth_data: dict):
+    """Admin-specific authentication"""
+    email = auth_data.get('email', 'admin@srboy.com')
+    name = auth_data.get('name', 'Naldino - Admin')
+    user_type = 'admin'
+    
+    # Check for admin credentials (in production, use proper admin auth)
+    if not email.endswith('@srboy.com') and 'admin' not in email.lower():
+        raise HTTPException(status_code=403, detail="Admin credentials required")
+    
+    existing_admin = users_collection.find_one({"email": email, "user_type": "admin"})
+    
+    if existing_admin:
+        user_data = existing_admin
+    else:
+        user_data = User(
+            email=email,
+            name=name,
+            user_type=user_type
+        ).dict()
+        
+        user_data.update({
+            "admin_permissions": ["full_access", "security", "finance", "moderation", "analytics"],
+            "created_at": datetime.now(),
+            "last_login": datetime.now()
+        })
+        
+        users_collection.insert_one(user_data)
+    
+    # Update last login
+    users_collection.update_one(
+        {"email": email},
+        {"$set": {"last_login": datetime.now()}}
+    )
+    
+    token_data = {
+        "user_id": user_data["id"],
+        "email": user_data["email"],
+        "user_type": user_data["user_type"],
+        "permissions": user_data.get("admin_permissions", []),
+        "exp": datetime.utcnow() + timedelta(days=1)
+    }
+    
+    token = jwt.encode(token_data, JWT_SECRET, algorithm="HS256")
+    
+    return {
+        "token": token,
+        "admin": {
+            "id": user_data["id"],
+            "email": user_data["email"],
+            "name": user_data["name"],
+            "permissions": user_data.get("admin_permissions", [])
+        }
+    }
+
+@app.get("/api/admin/dashboard")
+async def admin_dashboard(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Complete admin dashboard overview"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        
+        if payload["user_type"] != "admin":
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        # Get comprehensive statistics
+        total_users = users_collection.count_documents({})
+        total_motoboys = users_collection.count_documents({"user_type": "motoboy"})
+        total_lojistas = users_collection.count_documents({"user_type": "lojista"})
+        active_motoboys = users_collection.count_documents({"user_type": "motoboy", "is_available": True})
+        
+        total_deliveries = deliveries_collection.count_documents({})
+        completed_deliveries = deliveries_collection.count_documents({"status": "delivered"})
+        pending_deliveries = deliveries_collection.count_documents({"status": {"$in": ["pending", "matched"]}})
+        active_deliveries = deliveries_collection.count_documents({"status": {"$in": ["pickup_confirmed", "in_transit", "waiting"]}})
+        
+        # Financial metrics
+        total_revenue = 0
+        total_motoboy_earnings = 0
+        total_platform_fees = 0
+        
+        delivered_deliveries = deliveries_collection.find({"status": "delivered"})
+        for delivery in delivered_deliveries:
+            total_revenue += delivery.get("total_price", 0)
+            total_motoboy_earnings += delivery.get("motoboy_earnings", 0)
+            total_platform_fees += delivery.get("platform_fee", 0)
+        
+        # Recent activity
+        recent_deliveries = list(deliveries_collection.find({}).sort("created_at", -1).limit(10))
+        recent_users = list(users_collection.find({"user_type": {"$in": ["motoboy", "lojista"]}}).sort("created_at", -1).limit(10))
+        
+        # Clean data
+        for delivery in recent_deliveries:
+            delivery.pop("_id", None)
+        for user in recent_users:
+            user.pop("_id", None)
+        
+        # City statistics
+        city_stats = {}
+        for city in CITIES_SERVED:
+            city_motoboys = users_collection.count_documents({"user_type": "motoboy", "base_city": city})
+            city_deliveries = deliveries_collection.count_documents({"pickup_address.city": city})
+            city_stats[city] = {
+                "motoboys": city_motoboys,
+                "deliveries": city_deliveries,
+                "demand_level": predict_demand_for_city(city).get("predicted_demand_level", "medium")
+            }
+        
+        # Security alerts (simulated based on real data)
+        high_risk_motoboys = []
+        motoboys = users_collection.find({"user_type": "motoboy"}).limit(20)
+        for motoboy in motoboys:
+            if motoboy.get("ranking_score", 100) < 70:
+                high_risk_motoboys.append({
+                    "id": motoboy["id"],
+                    "name": motoboy["name"],
+                    "risk_level": "high" if motoboy.get("ranking_score", 100) < 50 else "medium",
+                    "ranking_score": motoboy.get("ranking_score", 100)
+                })
+        
+        # PIN system statistics
+        pin_statistics = {
+            "deliveries_with_pin": deliveries_collection.count_documents({"pin_confirmacao": {"$exists": True}}),
+            "pin_validations_success": deliveries_collection.count_documents({"pin_validado_com_sucesso": True}),
+            "pin_blocked": deliveries_collection.count_documents({"pin_bloqueado": True}),
+            "avg_pin_attempts": 1.2  # Simulated average
+        }
+        
+        return {
+            "overview": {
+                "total_users": total_users,
+                "total_motoboys": total_motoboys,
+                "total_lojistas": total_lojistas,
+                "active_motoboys": active_motoboys,
+                "total_deliveries": total_deliveries,
+                "completed_deliveries": completed_deliveries,
+                "pending_deliveries": pending_deliveries,
+                "active_deliveries": active_deliveries,
+                "completion_rate": round((completed_deliveries / max(total_deliveries, 1)) * 100, 2)
+            },
+            "financial": {
+                "total_revenue": round(total_revenue, 2),
+                "total_motoboy_earnings": round(total_motoboy_earnings, 2),
+                "total_platform_fees": round(total_platform_fees, 2),
+                "avg_delivery_value": round(total_revenue / max(completed_deliveries, 1), 2),
+                "profit_margin": round((total_platform_fees / max(total_revenue, 1)) * 100, 2)
+            },
+            "security": {
+                "high_risk_motoboys": len(high_risk_motoboys),
+                "pin_system": pin_statistics,
+                "recent_alerts": high_risk_motoboys[:5]
+            },
+            "city_statistics": city_stats,
+            "recent_activity": {
+                "deliveries": recent_deliveries,
+                "users": recent_users
+            },
+            "generated_at": datetime.now().isoformat()
+        }
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.get("/api/admin/users")
+async def admin_get_users(
+    user_type: str = None, 
+    city: str = None, 
+    page: int = 1, 
+    limit: int = 50,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """Get all users with filtering and pagination"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        
+        if payload["user_type"] != "admin":
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        query = {}
+        if user_type:
+            query["user_type"] = user_type
+        if city:
+            query["base_city"] = city
+        
+        skip = (page - 1) * limit
+        
+        users = list(users_collection.find(query).sort("created_at", -1).skip(skip).limit(limit))
+        total_users = users_collection.count_documents(query)
+        
+        for user in users:
+            user.pop("_id", None)
+            # Add additional statistics for each user
+            if user.get("user_type") == "motoboy":
+                user["total_deliveries"] = deliveries_collection.count_documents({"motoboy_id": user["id"]})
+                user["completed_deliveries"] = deliveries_collection.count_documents({"motoboy_id": user["id"], "status": "delivered"})
+            elif user.get("user_type") == "lojista":
+                user["total_orders"] = deliveries_collection.count_documents({"lojista_id": user["id"]})
+        
+        return {
+            "users": users,
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "total": total_users,
+                "pages": ((total_users - 1) // limit) + 1 if total_users > 0 else 0
+            }
+        }
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.get("/api/admin/deliveries")
+async def admin_get_deliveries(
+    status: str = None,
+    city: str = None,
+    date_from: str = None,
+    date_to: str = None,
+    page: int = 1,
+    limit: int = 50,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """Get all deliveries with filtering and pagination"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        
+        if payload["user_type"] != "admin":
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        query = {}
+        if status:
+            query["status"] = status
+        if city:
+            query["pickup_address.city"] = city
+        if date_from or date_to:
+            query["created_at"] = {}
+            if date_from:
+                query["created_at"]["$gte"] = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+            if date_to:
+                query["created_at"]["$lte"] = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+        
+        skip = (page - 1) * limit
+        
+        deliveries = list(deliveries_collection.find(query).sort("created_at", -1).skip(skip).limit(limit))
+        total_deliveries = deliveries_collection.count_documents(query)
+        
+        # Enrich with user data
+        for delivery in deliveries:
+            delivery.pop("_id", None)
+            
+            # Get lojista info
+            if delivery.get("lojista_id"):
+                lojista = users_collection.find_one({"id": delivery["lojista_id"]})
+                if lojista:
+                    delivery["lojista_name"] = lojista.get("name")
+                    delivery["lojista_fantasy"] = lojista.get("fantasy_name")
+            
+            # Get motoboy info
+            if delivery.get("motoboy_id"):
+                motoboy = users_collection.find_one({"id": delivery["motoboy_id"]})
+                if motoboy:
+                    delivery["motoboy_name"] = motoboy.get("name")
+        
+        return {
+            "deliveries": deliveries,
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "total": total_deliveries,
+                "pages": ((total_deliveries - 1) // limit) + 1 if total_deliveries > 0 else 0
+            }
+        }
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.post("/api/admin/user/{user_id}/action")
+async def admin_user_action(
+    user_id: str, 
+    action_data: dict, 
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """Execute admin actions on users (suspend, activate, etc.)"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        
+        if payload["user_type"] != "admin":
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        action = action_data.get("action")
+        reason = action_data.get("reason", "Admin action")
+        duration_hours = action_data.get("duration_hours", 24)
+        
+        user = users_collection.find_one({"id": user_id})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        admin_action = {
+            "action": action,
+            "reason": reason,
+            "admin_id": payload["user_id"],
+            "executed_at": datetime.now(),
+            "duration_hours": duration_hours if action == "suspend" else None
+        }
+        
+        update_data = {"last_admin_action": admin_action}
+        
+        if action == "suspend":
+            update_data.update({
+                "is_suspended": True,
+                "suspended_until": datetime.now() + timedelta(hours=duration_hours),
+                "is_available": False
+            })
+        elif action == "activate":
+            update_data.update({
+                "is_suspended": False,
+                "suspended_until": None,
+                "is_available": True
+            })
+        elif action == "flag_for_review":
+            update_data["flagged_for_review"] = True
+        elif action == "clear_flags":
+            update_data.update({
+                "flagged_for_review": False,
+                "is_suspended": False
+            })
+        
+        users_collection.update_one(
+            {"id": user_id},
+            {"$set": update_data}
+        )
+        
+        return {
+            "message": f"Action '{action}' executed successfully",
+            "user_id": user_id,
+            "action_details": admin_action
+        }
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.get("/api/admin/analytics")
+async def admin_analytics(
+    period: str = "7d",
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """Get detailed analytics and reports"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        
+        if payload["user_type"] != "admin":
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        # Calculate period dates
+        if period == "24h":
+            start_date = datetime.now() - timedelta(days=1)
+        elif period == "7d":
+            start_date = datetime.now() - timedelta(days=7)
+        elif period == "30d":
+            start_date = datetime.now() - timedelta(days=30)
+        else:
+            start_date = datetime.now() - timedelta(days=7)
+        
+        # Time-based delivery statistics
+        deliveries_in_period = list(deliveries_collection.find({
+            "created_at": {"$gte": start_date}
+        }))
+        
+        # Group by date
+        daily_stats = {}
+        revenue_stats = {}
+        
+        for delivery in deliveries_in_period:
+            date_key = delivery["created_at"].date().isoformat()
+            
+            if date_key not in daily_stats:
+                daily_stats[date_key] = {
+                    "total": 0, "completed": 0, "cancelled": 0, "pending": 0,
+                    "revenue": 0, "platform_fees": 0
+                }
+            
+            daily_stats[date_key]["total"] += 1
+            daily_stats[date_key][delivery["status"]] = daily_stats[date_key].get(delivery["status"], 0) + 1
+            
+            if delivery["status"] == "delivered":
+                daily_stats[date_key]["revenue"] += delivery.get("total_price", 0)
+                daily_stats[date_key]["platform_fees"] += delivery.get("platform_fee", 0)
+        
+        # Performance metrics
+        avg_delivery_time = 45  # Simulated - would calculate from actual timestamps
+        customer_satisfaction = 4.7  # Simulated
+        motoboy_satisfaction = 4.5  # Simulated
+        
+        # Top performers
+        top_motoboys = list(users_collection.find({
+            "user_type": "motoboy"
+        }).sort("total_deliveries", -1).limit(10))
+        
+        top_lojistas = list(users_collection.find({
+            "user_type": "lojista"  
+        }).sort("total_deliveries", -1).limit(10))
+        
+        for user in top_motoboys + top_lojistas:
+            user.pop("_id", None)
+        
+        return {
+            "period": period,
+            "date_range": {
+                "from": start_date.isoformat(),
+                "to": datetime.now().isoformat()
+            },
+            "daily_statistics": daily_stats,
+            "performance_metrics": {
+                "avg_delivery_time_minutes": avg_delivery_time,
+                "customer_satisfaction": customer_satisfaction,
+                "motoboy_satisfaction": motoboy_satisfaction,
+                "success_rate": round(len([d for d in deliveries_in_period if d["status"] == "delivered"]) / max(len(deliveries_in_period), 1) * 100, 2)
+            },
+            "top_performers": {
+                "motoboys": top_motoboys,
+                "lojistas": top_lojistas
+            },
+            "generated_at": datetime.now().isoformat()
+        }
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.get("/api/admin/financial-report")
+async def admin_financial_report(
+    period: str = "30d",
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """Generate comprehensive financial reports"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        
+        if payload["user_type"] != "admin":
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        # Calculate period
+        if period == "7d":
+            start_date = datetime.now() - timedelta(days=7)
+        elif period == "30d":
+            start_date = datetime.now() - timedelta(days=30)
+        elif period == "90d":
+            start_date = datetime.now() - timedelta(days=90)
+        else:
+            start_date = datetime.now() - timedelta(days=30)
+        
+        # Get financial data
+        delivered_deliveries = list(deliveries_collection.find({
+            "status": "delivered",
+            "delivered_at": {"$gte": start_date}
+        }))
+        
+        total_revenue = sum(d.get("total_price", 0) for d in delivered_deliveries)
+        total_platform_fees = sum(d.get("platform_fee", 0) for d in delivered_deliveries)
+        total_motoboy_earnings = sum(d.get("motoboy_earnings", 0) for d in delivered_deliveries)
+        total_waiting_fees = sum(d.get("waiting_fee", 0) for d in delivered_deliveries)
+        
+        # Breakdown by city
+        city_breakdown = {}
+        for delivery in delivered_deliveries:
+            city = delivery.get("pickup_address", {}).get("city", "Unknown")
+            if city not in city_breakdown:
+                city_breakdown[city] = {
+                    "deliveries": 0, "revenue": 0, "platform_fees": 0,
+                    "avg_delivery_value": 0
+                }
+            
+            city_breakdown[city]["deliveries"] += 1
+            city_breakdown[city]["revenue"] += delivery.get("total_price", 0)
+            city_breakdown[city]["platform_fees"] += delivery.get("platform_fee", 0)
+        
+        # Calculate averages
+        for city_data in city_breakdown.values():
+            city_data["avg_delivery_value"] = round(
+                city_data["revenue"] / max(city_data["deliveries"], 1), 2
+            )
+        
+        # Payment method breakdown (simulated)
+        payment_methods = {
+            "pix": {"count": len(delivered_deliveries) * 0.6, "amount": total_revenue * 0.6},
+            "credit_card": {"count": len(delivered_deliveries) * 0.3, "amount": total_revenue * 0.3},
+            "wallet": {"count": len(delivered_deliveries) * 0.1, "amount": total_revenue * 0.1}
+        }
+        
+        return {
+            "period": period,
+            "summary": {
+                "total_revenue": round(total_revenue, 2),
+                "total_platform_fees": round(total_platform_fees, 2),
+                "total_motoboy_earnings": round(total_motoboy_earnings, 2),
+                "total_waiting_fees": round(total_waiting_fees, 2),
+                "total_deliveries": len(delivered_deliveries),
+                "avg_delivery_value": round(total_revenue / max(len(delivered_deliveries), 1), 2),
+                "profit_margin": round((total_platform_fees / max(total_revenue, 1)) * 100, 2)
+            },
+            "city_breakdown": city_breakdown,
+            "payment_methods": payment_methods,
+            "trends": {
+                "revenue_growth": 15.7,  # Simulated percentage
+                "delivery_growth": 12.3,  # Simulated percentage  
+                "customer_growth": 8.9   # Simulated percentage
+            },
+            "generated_at": datetime.now().isoformat()
+        }
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# Admin Security endpoints (existing analyze endpoint is kept)
+# The existing /api/security/analyze/{motoboy_id} endpoint remains as is
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
