@@ -52,12 +52,17 @@ class PINSystemTester:
                 response = requests.delete(url, headers=headers, timeout=10)
             
             success = response.status_code == expected_status
-            return success, response.status_code, response.json() if response.content else {}
+            
+            # Try to parse JSON, but handle empty responses
+            try:
+                response_data = response.json() if response.content else {}
+            except json.JSONDecodeError:
+                response_data = {"error": "Invalid JSON response", "content": response.text[:200]}
+            
+            return success, response.status_code, response_data
             
         except requests.exceptions.RequestException as e:
             return False, 0, {"error": str(e)}
-        except json.JSONDecodeError:
-            return False, response.status_code, {"error": "Invalid JSON response"}
 
     def setup_authentication(self):
         """Setup authentication for lojista and motoboy"""
