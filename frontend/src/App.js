@@ -74,6 +74,9 @@ function App() {
       fetchUserProfile();
       fetchDeliveries();
       fetchRankings();
+      fetchProfile(); // Load user's social profile
+      fetchFeedPosts(); // Load social feed
+      fetchFeedStories(); // Load stories feed
     }
   }, [token]);
 
