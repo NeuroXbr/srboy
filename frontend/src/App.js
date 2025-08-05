@@ -1092,4 +1092,962 @@ function DeliveryCard({ delivery, userType, onUpdateStatus, onUpdateWaiting }) {
   );
 }
 
+// Motoboy Registration Component
+function MotoboyRegistration({ onBack, onRegister }) {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    cnh: '',
+    moto_model: '',
+    moto_color: '',
+    license_plate: '',
+    base_city: '',
+    bank_info: {
+      bank: '',
+      agency: '',
+      account: '',
+      pix_key: ''
+    },
+    profile_photo: null,
+    moto_photo: null,
+    cnh_photo: null,
+    moto_document: null
+  });
+  
+  const [loading, setLoading] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [message, setMessage] = useState('');
+
+  const CITIES = ["Araçariguama", "São Roque", "Mairinque", "Alumínio", "Ibiúna"];
+  const BANKS = ["Banco do Brasil", "Caixa", "Bradesco", "Itaú", "Santander", "Nubank", "Inter", "C6 Bank", "PicPay"];
+  const MOTO_MODELS = ["Honda CG 160", "Honda CB 600F", "Yamaha YBR 150", "Suzuki Intruder 125", "Honda PCX 150", "Yamaha Fazer 250", "Outro"];
+  const COLORS = ["Branca", "Preta", "Vermelha", "Azul", "Prata", "Amarela", "Verde", "Outra"];
+
+  const handleInputChange = (field, value) => {
+    if (field.includes('.')) {
+      const [parent, child] = field.split('.');
+      setFormData(prev => ({
+        ...prev,
+        [parent]: {
+          ...prev[parent],
+          [child]: value
+        }
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [field]: value
+      }));
+    }
+  };
+
+  const handleFileUpload = (field, file) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: file
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+
+    try {
+      // Simulate registration process
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      setMessage({
+        type: 'success',
+        text: 'Cadastro realizado com sucesso! Aguarde análise dos documentos.'
+      });
+
+      // Auto login after successful registration
+      setTimeout(() => {
+        onRegister('motoboy');
+      }, 2000);
+      
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: 'Erro ao realizar cadastro. Tente novamente.'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const nextStep = () => {
+    if (currentStep < 4) setCurrentStep(currentStep + 1);
+  };
+
+  const prevStep = () => {
+    if (currentStep > 1) setCurrentStep(currentStep - 1);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900">
+      <div className="relative max-w-4xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <Button 
+              onClick={onBack}
+              variant="outline" 
+              className="absolute left-4 top-4 border-white/20 text-white hover:bg-white/10"
+            >
+              ← Voltar
+            </Button>
+            <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-3 rounded-2xl">
+              <Motorcycle className="h-12 w-12 text-white" />
+            </div>
+          </div>
+          <h1 className="text-4xl font-bold text-white mb-4">Cadastro de Motoboy</h1>
+          <p className="text-blue-200">Junte-se ao SrBoy e faça parte do sistema de entregas mais justo da região</p>
+          
+          {/* Progress Steps */}
+          <div className="flex justify-center mt-8 mb-8">
+            <div className="flex items-center space-x-4">
+              {[1, 2, 3, 4].map((step) => (
+                <div key={step} className="flex items-center">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
+                    step <= currentStep 
+                      ? 'bg-green-500 text-white' 
+                      : 'bg-blue-700 text-blue-200'
+                  }`}>
+                    {step}
+                  </div>
+                  {step < 4 && (
+                    <div className={`w-16 h-1 mx-2 ${
+                      step < currentStep ? 'bg-green-500' : 'bg-blue-700'
+                    }`}></div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Form */}
+        <Card className="bg-white/10 backdrop-blur-sm border-white/20">
+          <CardContent className="p-8">
+            <form onSubmit={handleSubmit}>
+              
+              {/* Step 1: Personal Information */}
+              {currentStep === 1 && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-semibold text-white mb-6">Informações Pessoais</h2>
+                  
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-blue-100 mb-2">Nome Completo *</label>
+                      <Input
+                        value={formData.name}
+                        onChange={(e) => handleInputChange('name', e.target.value)}
+                        placeholder="Seu nome completo"
+                        className="bg-white/20 border-white/30 text-white placeholder-blue-200"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-blue-100 mb-2">Email *</label>
+                      <Input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => handleInputChange('email', e.target.value)}
+                        placeholder="seu@email.com"
+                        className="bg-white/20 border-white/30 text-white placeholder-blue-200"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-blue-100 mb-2">Telefone/WhatsApp *</label>
+                      <Input
+                        value={formData.phone}
+                        onChange={(e) => handleInputChange('phone', e.target.value)}
+                        placeholder="(11) 99999-9999"
+                        className="bg-white/20 border-white/30 text-white placeholder-blue-200"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-blue-100 mb-2">CNH *</label>
+                      <Input
+                        value={formData.cnh}
+                        onChange={(e) => handleInputChange('cnh', e.target.value)}
+                        placeholder="Número da CNH"
+                        className="bg-white/20 border-white/30 text-white placeholder-blue-200"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-blue-100 mb-2">Cidade Base *</label>
+                      <select
+                        value={formData.base_city}
+                        onChange={(e) => handleInputChange('base_city', e.target.value)}
+                        className="w-full px-3 py-2 bg-white/20 border border-white/30 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                        required
+                      >
+                        <option value="" className="text-slate-800">Selecione sua cidade</option>
+                        {CITIES.map(city => (
+                          <option key={city} value={city} className="text-slate-800">{city}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Motorcycle Information */}
+              {currentStep === 2 && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-semibold text-white mb-6">Informações da Moto</h2>
+                  
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-blue-100 mb-2">Modelo da Moto *</label>
+                      <select
+                        value={formData.moto_model}
+                        onChange={(e) => handleInputChange('moto_model', e.target.value)}
+                        className="w-full px-3 py-2 bg-white/20 border border-white/30 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                        required
+                      >
+                        <option value="" className="text-slate-800">Selecione o modelo</option>
+                        {MOTO_MODELS.map(model => (
+                          <option key={model} value={model} className="text-slate-800">{model}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-blue-100 mb-2">Cor da Moto *</label>
+                      <select
+                        value={formData.moto_color}
+                        onChange={(e) => handleInputChange('moto_color', e.target.value)}
+                        className="w-full px-3 py-2 bg-white/20 border border-white/30 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                        required
+                      >
+                        <option value="" className="text-slate-800">Selecione a cor</option>
+                        {COLORS.map(color => (
+                          <option key={color} value={color} className="text-slate-800">{color}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-blue-100 mb-2">Placa da Moto *</label>
+                      <Input
+                        value={formData.license_plate}
+                        onChange={(e) => handleInputChange('license_plate', e.target.value.toUpperCase())}
+                        placeholder="ABC-1234"
+                        className="bg-white/20 border-white/30 text-white placeholder-blue-200"
+                        maxLength={8}
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Documents Upload */}
+              {currentStep === 3 && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-semibold text-white mb-6">Documentos</h2>
+                  <p className="text-blue-200 mb-6">Faça upload dos documentos necessários. Todos os arquivos são seguros e criptografados.</p>
+                  
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <label className="block text-sm font-medium text-blue-100">Foto de Perfil *</label>
+                      <div className="border-2 border-dashed border-white/30 rounded-lg p-6 text-center bg-white/5">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleFileUpload('profile_photo', e.target.files[0])}
+                          className="hidden"
+                          id="profile_photo"
+                        />
+                        <label htmlFor="profile_photo" className="cursor-pointer">
+                          <div className="text-blue-200 mb-2">
+                            <Users className="h-12 w-12 mx-auto mb-2" />
+                            <p>Clique para fazer upload</p>
+                            <p className="text-sm">Selfie nítida</p>
+                          </div>
+                        </label>
+                        {formData.profile_photo && (
+                          <p className="text-green-400 text-sm mt-2">✓ {formData.profile_photo.name}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <label className="block text-sm font-medium text-blue-100">Foto da CNH *</label>
+                      <div className="border-2 border-dashed border-white/30 rounded-lg p-6 text-center bg-white/5">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleFileUpload('cnh_photo', e.target.files[0])}
+                          className="hidden"
+                          id="cnh_photo"
+                        />
+                        <label htmlFor="cnh_photo" className="cursor-pointer">
+                          <div className="text-blue-200 mb-2">
+                            <FileText className="h-12 w-12 mx-auto mb-2" />
+                            <p>Clique para fazer upload</p>
+                            <p className="text-sm">CNH frente e verso</p>
+                          </div>
+                        </label>
+                        {formData.cnh_photo && (
+                          <p className="text-green-400 text-sm mt-2">✓ {formData.cnh_photo.name}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <label className="block text-sm font-medium text-blue-100">Foto da Moto *</label>
+                      <div className="border-2 border-dashed border-white/30 rounded-lg p-6 text-center bg-white/5">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleFileUpload('moto_photo', e.target.files[0])}
+                          className="hidden"
+                          id="moto_photo"
+                        />
+                        <label htmlFor="moto_photo" className="cursor-pointer">
+                          <div className="text-blue-200 mb-2">
+                            <Motorcycle className="h-12 w-12 mx-auto mb-2" />
+                            <p>Clique para fazer upload</p>
+                            <p className="text-sm">Foto lateral da moto</p>
+                          </div>
+                        </label>
+                        {formData.moto_photo && (
+                          <p className="text-green-400 text-sm mt-2">✓ {formData.moto_photo.name}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <label className="block text-sm font-medium text-blue-100">Documento da Moto *</label>
+                      <div className="border-2 border-dashed border-white/30 rounded-lg p-6 text-center bg-white/5">
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          onChange={(e) => handleFileUpload('moto_document', e.target.files[0])}
+                          className="hidden"
+                          id="moto_document"
+                        />
+                        <label htmlFor="moto_document" className="cursor-pointer">
+                          <div className="text-blue-200 mb-2">
+                            <Receipt className="h-12 w-12 mx-auto mb-2" />
+                            <p>Clique para fazer upload</p>
+                            <p className="text-sm">CRLV atualizado</p>
+                          </div>
+                        </label>
+                        {formData.moto_document && (
+                          <p className="text-green-400 text-sm mt-2">✓ {formData.moto_document.name}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 4: Banking Information */}
+              {currentStep === 4 && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-semibold text-white mb-6">Dados Bancários</h2>
+                  <p className="text-blue-200 mb-6">Para receber seus pagamentos via PIX no final do dia</p>
+                  
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-blue-100 mb-2">Banco *</label>
+                      <select
+                        value={formData.bank_info.bank}
+                        onChange={(e) => handleInputChange('bank_info.bank', e.target.value)}
+                        className="w-full px-3 py-2 bg-white/20 border border-white/30 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                        required
+                      >
+                        <option value="" className="text-slate-800">Selecione o banco</option>
+                        {BANKS.map(bank => (
+                          <option key={bank} value={bank} className="text-slate-800">{bank}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-blue-100 mb-2">Agência</label>
+                      <Input
+                        value={formData.bank_info.agency}
+                        onChange={(e) => handleInputChange('bank_info.agency', e.target.value)}
+                        placeholder="0001"
+                        className="bg-white/20 border-white/30 text-white placeholder-blue-200"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-blue-100 mb-2">Conta</label>
+                      <Input
+                        value={formData.bank_info.account}
+                        onChange={(e) => handleInputChange('bank_info.account', e.target.value)}
+                        placeholder="12345-6"
+                        className="bg-white/20 border-white/30 text-white placeholder-blue-200"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-blue-100 mb-2">Chave PIX *</label>
+                      <Input
+                        value={formData.bank_info.pix_key}
+                        onChange={(e) => handleInputChange('bank_info.pix_key', e.target.value)}
+                        placeholder="CPF, email ou telefone"
+                        className="bg-white/20 border-white/30 text-white placeholder-blue-200"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-900/50 p-4 rounded-lg border border-blue-700">
+                    <h3 className="text-white font-semibold mb-2">💰 Como funciona o pagamento no SrBoy:</h3>
+                    <ul className="text-blue-200 text-sm space-y-1">
+                      <li>• Você recebe automaticamente via PIX no final de cada dia</li>
+                      <li>• Ganho por entrega: Valor total - Taxa fixa de R$ 2,00</li>
+                      <li>• Acima de 4km: Você recebe R$ 8,00 + R$ 2,00 por km</li>
+                      <li>• Taxa de espera: R$ 1,00/min após 10 minutos (integral para você)</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {/* Message Display */}
+              {message && (
+                <Alert className={`mb-6 ${message.type === 'success' ? 'border-green-500 bg-green-900/20' : 'border-red-500 bg-red-900/20'}`}>
+                  <AlertDescription className={message.type === 'success' ? 'text-green-200' : 'text-red-200'}>
+                    {message.text}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Navigation Buttons */}
+              <div className="flex justify-between mt-8">
+                <Button
+                  type="button"
+                  onClick={prevStep}
+                  disabled={currentStep === 1}
+                  variant="outline"
+                  className="border-white/30 text-white hover:bg-white/10"
+                >
+                  ← Anterior
+                </Button>
+
+                {currentStep < 4 ? (
+                  <Button
+                    type="button"
+                    onClick={nextStep}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    Próximo →
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {loading ? 'Cadastrando...' : 'Finalizar Cadastro'}
+                  </Button>
+                )}
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// Lojista Registration Component
+function LojistaRegistration({ onBack, onRegister }) {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    fantasy_name: '',
+    cnpj: '',
+    phone: '',
+    address: {
+      street: '',
+      number: '',
+      neighborhood: '',
+      city: '',
+      zipcode: ''
+    },
+    category: '',
+    business_hours: {
+      monday: { open: '08:00', close: '18:00', closed: false },
+      tuesday: { open: '08:00', close: '18:00', closed: false },
+      wednesday: { open: '08:00', close: '18:00', closed: false },
+      thursday: { open: '08:00', close: '18:00', closed: false },
+      friday: { open: '08:00', close: '18:00', closed: false },
+      saturday: { open: '08:00', close: '18:00', closed: false },
+      sunday: { open: '08:00', close: '18:00', closed: true }
+    },
+    description: '',
+    instagram: '',
+    logo: null
+  });
+  
+  const [loading, setLoading] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [message, setMessage] = useState('');
+
+  const CITIES = ["Araçariguama", "São Roque", "Mairinque", "Alumínio", "Ibiúna"];
+  const CATEGORIES = [
+    "Farmácia", "Restaurante", "Loja de Roupas", "Eletrônicos", "Supermercado",
+    "Petshop", "Perfumaria", "Livraria", "Loja de Presentes", "Açougue",
+    "Padaria", "Floricultura", "Ótica", "Casa de Construção", "Outro"
+  ];
+
+  const WEEKDAYS = {
+    monday: 'Segunda-feira',
+    tuesday: 'Terça-feira', 
+    wednesday: 'Quarta-feira',
+    thursday: 'Quinta-feira',
+    friday: 'Sexta-feira',
+    saturday: 'Sábado',
+    sunday: 'Domingo'
+  };
+
+  const handleInputChange = (field, value) => {
+    if (field.includes('.')) {
+      const parts = field.split('.');
+      if (parts.length === 2) {
+        const [parent, child] = parts;
+        setFormData(prev => ({
+          ...prev,
+          [parent]: {
+            ...prev[parent],
+            [child]: value
+          }
+        }));
+      } else if (parts.length === 3) {
+        const [parent, child, grandchild] = parts;
+        setFormData(prev => ({
+          ...prev,
+          [parent]: {
+            ...prev[parent],
+            [child]: {
+              ...prev[parent][child],
+              [grandchild]: value
+            }
+          }
+        }));
+      }
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [field]: value
+      }));
+    }
+  };
+
+  const handleFileUpload = (field, file) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: file
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+
+    try {
+      // Simulate registration process
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      setMessage({
+        type: 'success',
+        text: 'Cadastro realizado com sucesso! Sua loja será analisada em até 24h.'
+      });
+
+      // Auto login after successful registration
+      setTimeout(() => {
+        onRegister('lojista');
+      }, 2000);
+      
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: 'Erro ao realizar cadastro. Tente novamente.'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const nextStep = () => {
+    if (currentStep < 3) setCurrentStep(currentStep + 1);
+  };
+
+  const prevStep = () => {
+    if (currentStep > 1) setCurrentStep(currentStep - 1);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900">
+      <div className="relative max-w-4xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <Button 
+              onClick={onBack}
+              variant="outline" 
+              className="absolute left-4 top-4 border-white/20 text-white hover:bg-white/10"
+            >
+              ← Voltar
+            </Button>
+            <div className="bg-gradient-to-r from-purple-500 to-pink-600 p-3 rounded-2xl">
+              <Store className="h-12 w-12 text-white" />
+            </div>
+          </div>
+          <h1 className="text-4xl font-bold text-white mb-4">Cadastro de Lojista</h1>
+          <p className="text-purple-200">Cadastre sua loja no SrBoy e tenha acesso a entregas rápidas e seguras</p>
+          
+          {/* Progress Steps */}
+          <div className="flex justify-center mt-8 mb-8">
+            <div className="flex items-center space-x-4">
+              {[1, 2, 3].map((step) => (
+                <div key={step} className="flex items-center">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
+                    step <= currentStep 
+                      ? 'bg-green-500 text-white' 
+                      : 'bg-purple-700 text-purple-200'
+                  }`}>
+                    {step}
+                  </div>
+                  {step < 3 && (
+                    <div className={`w-16 h-1 mx-2 ${
+                      step < currentStep ? 'bg-green-500' : 'bg-purple-700'
+                    }`}></div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Form */}
+        <Card className="bg-white/10 backdrop-blur-sm border-white/20">
+          <CardContent className="p-8">
+            <form onSubmit={handleSubmit}>
+              
+              {/* Step 1: Business Information */}
+              {currentStep === 1 && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-semibold text-white mb-6">Informações da Loja</h2>
+                  
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-purple-100 mb-2">Nome do Responsável *</label>
+                      <Input
+                        value={formData.name}
+                        onChange={(e) => handleInputChange('name', e.target.value)}
+                        placeholder="Seu nome completo"
+                        className="bg-white/20 border-white/30 text-white placeholder-purple-200"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-purple-100 mb-2">Email *</label>
+                      <Input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => handleInputChange('email', e.target.value)}
+                        placeholder="contato@loja.com"
+                        className="bg-white/20 border-white/30 text-white placeholder-purple-200"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-purple-100 mb-2">Nome Fantasia *</label>
+                      <Input
+                        value={formData.fantasy_name}
+                        onChange={(e) => handleInputChange('fantasy_name', e.target.value)}
+                        placeholder="Nome da sua loja"
+                        className="bg-white/20 border-white/30 text-white placeholder-purple-200"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-purple-100 mb-2">CNPJ *</label>
+                      <Input
+                        value={formData.cnpj}
+                        onChange={(e) => handleInputChange('cnpj', e.target.value)}
+                        placeholder="00.000.000/0001-00"
+                        className="bg-white/20 border-white/30 text-white placeholder-purple-200"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-purple-100 mb-2">Telefone/WhatsApp *</label>
+                      <Input
+                        value={formData.phone}
+                        onChange={(e) => handleInputChange('phone', e.target.value)}
+                        placeholder="(11) 99999-9999"
+                        className="bg-white/20 border-white/30 text-white placeholder-purple-200"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-purple-100 mb-2">Categoria *</label>
+                      <select
+                        value={formData.category}
+                        onChange={(e) => handleInputChange('category', e.target.value)}
+                        className="w-full px-3 py-2 bg-white/20 border border-white/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500"
+                        required
+                      >
+                        <option value="" className="text-slate-800">Selecione a categoria</option>
+                        {CATEGORIES.map(category => (
+                          <option key={category} value={category} className="text-slate-800">{category}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-purple-100 mb-2">Instagram (opcional)</label>
+                      <Input
+                        value={formData.instagram}
+                        onChange={(e) => handleInputChange('instagram', e.target.value)}
+                        placeholder="@nomedaloja"
+                        className="bg-white/20 border-white/30 text-white placeholder-purple-200"
+                      />
+                    </div>
+                    
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-purple-100 mb-2">Descrição da Loja</label>
+                      <Textarea
+                        value={formData.description}
+                        onChange={(e) => handleInputChange('description', e.target.value)}
+                        placeholder="Conte um pouco sobre sua loja, produtos, diferenciais..."
+                        className="bg-white/20 border-white/30 text-white placeholder-purple-200"
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Address Information */}
+              {currentStep === 2 && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-semibold text-white mb-6">Endereço da Loja</h2>
+                  
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-purple-100 mb-2">CEP *</label>
+                      <Input
+                        value={formData.address.zipcode}
+                        onChange={(e) => handleInputChange('address.zipcode', e.target.value)}
+                        placeholder="00000-000"
+                        className="bg-white/20 border-white/30 text-white placeholder-purple-200"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-purple-100 mb-2">Cidade *</label>
+                      <select
+                        value={formData.address.city}
+                        onChange={(e) => handleInputChange('address.city', e.target.value)}
+                        className="w-full px-3 py-2 bg-white/20 border border-white/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500"
+                        required
+                      >
+                        <option value="" className="text-slate-800">Selecione a cidade</option>
+                        {CITIES.map(city => (
+                          <option key={city} value={city} className="text-slate-800">{city}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-purple-100 mb-2">Rua *</label>
+                      <Input
+                        value={formData.address.street}
+                        onChange={(e) => handleInputChange('address.street', e.target.value)}
+                        placeholder="Nome da rua"
+                        className="bg-white/20 border-white/30 text-white placeholder-purple-200"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-purple-100 mb-2">Número *</label>
+                      <Input
+                        value={formData.address.number}
+                        onChange={(e) => handleInputChange('address.number', e.target.value)}
+                        placeholder="123"
+                        className="bg-white/20 border-white/30 text-white placeholder-purple-200"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-purple-100 mb-2">Bairro *</label>
+                      <Input
+                        value={formData.address.neighborhood}
+                        onChange={(e) => handleInputChange('address.neighborhood', e.target.value)}
+                        placeholder="Nome do bairro"
+                        className="bg-white/20 border-white/30 text-white placeholder-purple-200"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Business Hours & Logo */}
+              {currentStep === 3 && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-semibold text-white mb-6">Horário de Funcionamento</h2>
+                  
+                  <div className="space-y-4">
+                    {Object.entries(WEEKDAYS).map(([day, dayName]) => (
+                      <div key={day} className="flex items-center gap-4 p-4 bg-white/5 rounded-lg">
+                        <div className="w-32">
+                          <span className="text-purple-100 font-medium">{dayName}</span>
+                        </div>
+                        
+                        <div className="flex items-center gap-4">
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={formData.business_hours[day].closed}
+                              onChange={(e) => handleInputChange(`business_hours.${day}.closed`, e.target.checked)}
+                              className="rounded"
+                            />
+                            <span className="text-purple-200 text-sm">Fechado</span>
+                          </label>
+                          
+                          {!formData.business_hours[day].closed && (
+                            <>
+                              <div className="flex items-center gap-2">
+                                <span className="text-purple-200 text-sm">Das</span>
+                                <input
+                                  type="time"
+                                  value={formData.business_hours[day].open}
+                                  onChange={(e) => handleInputChange(`business_hours.${day}.open`, e.target.value)}
+                                  className="bg-white/20 border border-white/30 rounded px-2 py-1 text-white"
+                                />
+                              </div>
+                              
+                              <div className="flex items-center gap-2">
+                                <span className="text-purple-200 text-sm">às</span>
+                                <input
+                                  type="time"
+                                  value={formData.business_hours[day].close}
+                                  onChange={(e) => handleInputChange(`business_hours.${day}.close`, e.target.value)}
+                                  className="bg-white/20 border border-white/30 rounded px-2 py-1 text-white"
+                                />
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Logo Upload */}
+                  <div className="mt-8">
+                    <h3 className="text-xl font-semibold text-white mb-4">Logo da Loja (opcional)</h3>
+                    <div className="border-2 border-dashed border-white/30 rounded-lg p-8 text-center bg-white/5">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileUpload('logo', e.target.files[0])}
+                        className="hidden"
+                        id="logo"
+                      />
+                      <label htmlFor="logo" className="cursor-pointer">
+                        <div className="text-purple-200 mb-4">
+                          <Store className="h-16 w-16 mx-auto mb-4" />
+                          <p className="text-lg">Clique para fazer upload do logo</p>
+                          <p className="text-sm">PNG, JPG até 5MB</p>
+                        </div>
+                      </label>
+                      {formData.logo && (
+                        <p className="text-green-400 text-sm mt-4">✓ {formData.logo.name}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-purple-900/50 p-6 rounded-lg border border-purple-700">
+                    <h3 className="text-white font-semibold mb-3">💼 Como funciona para lojistas no SrBoy:</h3>
+                    <ul className="text-purple-200 text-sm space-y-2">
+                      <li>• <strong>Cadastro gratuito</strong> - sem mensalidades ou taxas de adesão</li>
+                      <li>• <strong>Recarregue sua carteira</strong> via PIX ou cartão (Mercado Pago)</li>
+                      <li>• <strong>Preços transparentes:</strong> R$ 10,00 base + R$ 2,00/km</li>
+                      <li>• <strong>Matching automático</strong> com o melhor motoboy disponível</li>
+                      <li>• <strong>Comprovante digital</strong> de todas as entregas</li>
+                      <li>• <strong>Acompanhamento em tempo real</strong> via mapa</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {/* Message Display */}
+              {message && (
+                <Alert className={`mb-6 ${message.type === 'success' ? 'border-green-500 bg-green-900/20' : 'border-red-500 bg-red-900/20'}`}>
+                  <AlertDescription className={message.type === 'success' ? 'text-green-200' : 'text-red-200'}>
+                    {message.text}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Navigation Buttons */}
+              <div className="flex justify-between mt-8">
+                <Button
+                  type="button"
+                  onClick={prevStep}
+                  disabled={currentStep === 1}
+                  variant="outline"
+                  className="border-white/30 text-white hover:bg-white/10"
+                >
+                  ← Anterior
+                </Button>
+
+                {currentStep < 3 ? (
+                  <Button
+                    type="button"
+                    onClick={nextStep}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    Próximo →
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {loading ? 'Cadastrando...' : 'Finalizar Cadastro'}
+                  </Button>
+                )}
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 export default App;
