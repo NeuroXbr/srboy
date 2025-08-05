@@ -132,6 +132,41 @@ class WaitingUpdate(BaseModel):
     waiting_minutes: int
     reason: Optional[str] = None
 
+class Profile(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    bio: str = Field(max_length=300)
+    profile_photo: Optional[str] = None  # base64 encoded
+    cover_photo: Optional[str] = None    # base64 encoded
+    gallery_photos: List[str] = Field(default_factory=list, max_items=2)  # max 2 additional photos
+    followers_count: int = Field(default=0)
+    following_count: int = Field(default=0)
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+class Post(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    content: str = Field(max_length=500)
+    image: Optional[str] = None  # base64 encoded
+    likes_count: int = Field(default=0)
+    comments_count: int = Field(default=0)
+    created_at: datetime = Field(default_factory=datetime.now)
+
+class Story(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    content: Optional[str] = Field(max_length=200)
+    image: Optional[str] = None  # base64 encoded
+    created_at: datetime = Field(default_factory=datetime.now)
+    expires_at: datetime = Field(default_factory=lambda: datetime.now() + timedelta(hours=24))
+
+class Follow(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    follower_id: str  # user who follows
+    followed_id: str  # user being followed
+    created_at: datetime = Field(default_factory=datetime.now)
+
 # Cities served
 CITIES_SERVED = [
     "Araçariguama", "São Roque", "Mairinque", "Alumínio", "Ibiúna"
