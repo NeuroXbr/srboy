@@ -538,25 +538,28 @@ function App() {
                 
                 {/* Demo Login Section */}
                 <div className="mt-8 pt-8 border-t border-slate-600">
-                  <p className="text-slate-400 text-sm mb-4">Ou entre com conta demo:</p>
+                  <p className="text-slate-400 text-sm mb-4">🎭 Entre com perfis de demonstração:</p>
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
                     <Button 
                       onClick={() => handleGoogleAuth('motoboy')}
                       disabled={loading}
                       variant="outline"
-                      className="border-slate-500 text-slate-300 hover:bg-slate-800 px-6 py-3"
+                      className="border-blue-500 text-blue-300 hover:bg-blue-800/20 px-6 py-3"
                     >
-                      {loading ? 'Carregando...' : 'Demo Motoboy'}
+                      {loading ? 'Carregando...' : '🏍️ Carlos - Motoboy'}
                     </Button>
                     <Button 
                       onClick={() => handleGoogleAuth('lojista')}
                       disabled={loading}
                       variant="outline"
-                      className="border-slate-500 text-slate-300 hover:bg-slate-800 px-6 py-3"
+                      className="border-purple-500 text-purple-300 hover:bg-purple-800/20 px-6 py-3"
                     >
-                      {loading ? 'Carregando...' : 'Demo Lojista'}
+                      {loading ? 'Carregando...' : '🏪 Maria - Farmácia'}
                     </Button>
                   </div>
+                  <p className="text-slate-500 text-xs mt-2 text-center">
+                    * Perfis com dados reais de demonstração incluindo posts, stories e seguidores
+                  </p>
                 </div>
                 
                 <p className="text-slate-400 text-sm mt-4">
