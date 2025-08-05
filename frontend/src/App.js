@@ -2314,7 +2314,7 @@ function MotoboyRegistration({ onBack, onRegister }) {
                   </div>
 
                   <div className="bg-blue-900/50 p-4 rounded-lg border border-blue-700">
-                    <h3 className="text-white font-semibold mb-2">💰 Como funciona o pagamento no SrBoy:</h3>
+                    <h3 className="text-white font-semibold mb-2">💰 Como funciona o pagamento no <span translate="no">SrBoy</span>:</h3>
                     <ul className="text-blue-200 text-sm space-y-1">
                       <li>• Você recebe automaticamente via PIX no final de cada dia</li>
                       <li>• Ganho por entrega: Valor total - Taxa fixa de R$ 2,00</li>
