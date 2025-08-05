@@ -458,12 +458,14 @@ function App() {
           <div className="relative max-w-7xl mx-auto px-4 py-20">
             <div className="text-center">
               <div className="flex justify-center mb-8">
-                <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-4 rounded-2xl">
-                  <Motorcycle className="h-16 w-16 text-white" />
-                </div>
+                <img 
+                  src="/srboy-logo.png" 
+                  alt="SrBoy Logo" 
+                  className="h-24 w-auto"
+                />
               </div>
               <h1 className="text-6xl font-bold text-white mb-6">
-                SrBoy
+                <span translate="no">SrBoy</span>
               </h1>
               <p className="text-xl text-slate-300 mb-8 max-w-3xl mx-auto">
                 Sistema inteligente de entregas regionais baseado em <span className="text-blue-400 font-semibold">mérito e transparência</span>.
