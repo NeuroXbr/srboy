@@ -31,7 +31,15 @@ import {
   AlertCircle,
   FileText,
   Wallet,
-  Phone
+  Phone,
+  Camera,
+  Heart,
+  UserPlus,
+  UserMinus,
+  Edit,
+  Image,
+  Send,
+  Eye
 } from 'lucide-react';
 
 const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
