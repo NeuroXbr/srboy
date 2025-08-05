@@ -558,6 +558,14 @@ function App() {
                     >
                       {loading ? 'Carregando...' : '🏪 Maria - Farmácia'}
                     </Button>
+                    <Button 
+                      onClick={() => handleAdminLogin()}
+                      disabled={loading}
+                      variant="outline"
+                      className="border-red-500 text-red-300 hover:bg-red-800/20 px-6 py-3"
+                    >
+                      {loading ? 'Carregando...' : '🛡️ Admin - Naldino'}
+                    </Button>
                   </div>
                   <p className="text-slate-500 text-xs mt-2 text-center">
                     * Perfis com dados reais de demonstração incluindo posts, stories e seguidores
