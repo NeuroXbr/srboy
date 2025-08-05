@@ -34,6 +34,10 @@ deliveries_collection = db.deliveries
 delivery_receipts_collection = db.delivery_receipts
 chats_collection = db.chats
 rankings_collection = db.rankings
+profiles_collection = db.profiles
+posts_collection = db.posts
+stories_collection = db.stories
+follows_collection = db.follows
 
 # Security
 security = HTTPBearer()
