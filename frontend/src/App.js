@@ -1943,8 +1943,9 @@ function DeliveryCard({ delivery, userType, onUpdateStatus, onUpdateWaiting }) {
               </Button>
               <Button 
                 size="sm" 
-                onClick={() => onUpdateStatus(delivery.id, 'delivered')}
+                onClick={handleDeliveryAttempt}
                 className="bg-green-600 hover:bg-green-700"
+                disabled={delivery.pin_bloqueado}
               >
                 <CheckCircle className="h-4 w-4 mr-1" />
                 Entregar
@@ -1979,11 +1980,73 @@ function DeliveryCard({ delivery, userType, onUpdateStatus, onUpdateWaiting }) {
               )}
               <Button 
                 size="sm" 
-                onClick={() => onUpdateStatus(delivery.id, 'delivered')}
+                onClick={handleDeliveryAttempt}
                 className="bg-green-600 hover:bg-green-700"
+                disabled={delivery.pin_bloqueado}
               >
                 Entregar
               </Button>
+            </div>
+          )}
+
+          {/* PIN Validation Modal */}
+          {showPinModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                <div className="flex items-center gap-2 mb-4">
+                  <Shield className="h-6 w-6 text-blue-600" />
+                  <h3 className="text-lg font-semibold">Validar PIN de Entrega</h3>
+                </div>
+                
+                <p className="text-sm text-slate-600 mb-4">
+                  Solicite ao cliente o PIN de 4 dígitos para confirmar a entrega:
+                </p>
+                
+                <div className="mb-4">
+                  <Input
+                    type="text"
+                    value={pin}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^A-Za-z0-9]/g, '').substring(0, 4);
+                      setPin(value.toUpperCase());
+                      setPinError('');
+                    }}
+                    placeholder="Digite o PIN"
+                    className="text-center text-lg font-mono tracking-wider"
+                    maxLength="4"
+                    autoFocus
+                  />
+                  {pinError && (
+                    <p className="text-red-500 text-sm mt-1">{pinError}</p>
+                  )}
+                  {pinAttempts > 0 && (
+                    <p className="text-orange-600 text-sm mt-1">
+                      {pinAttempts} tentativa(s) - {3 - pinAttempts} restantes
+                    </p>
+                  )}
+                </div>
+                
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handlePinValidation}
+                    disabled={pinLoading || pin.length !== 4}
+                    className="flex-1"
+                  >
+                    {pinLoading ? 'Validando...' : 'Validar PIN'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowPinModal(false);
+                      setPin('');
+                      setPinError('');
+                    }}
+                    disabled={pinLoading}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </div>
