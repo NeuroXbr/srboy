@@ -1839,6 +1839,55 @@ function DeliveryCard({ delivery, userType, onUpdateStatus, onUpdateWaiting }) {
         </div>
       )}
 
+      {/* PIN Information for Lojista */}
+      {delivery.pin_confirmacao && userType === 'lojista' && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <Shield className="h-4 w-4 text-blue-600" />
+            <div className="text-sm font-medium text-blue-700">PIN de Segurança</div>
+          </div>
+          <div className="text-lg font-mono font-bold text-blue-800 mb-1">
+            {delivery.pin_confirmacao}
+          </div>
+          <div className="text-xs text-blue-600">
+            📞 Informe este código de 4 dígitos ao seu cliente. O motoboy irá solicitar para confirmar a entrega.
+          </div>
+          {delivery.pin_tentativas > 0 && (
+            <div className="text-xs text-orange-600 mt-1">
+              ⚠️ {delivery.pin_tentativas} tentativa(s) de validação realizadas
+            </div>
+          )}
+          {delivery.pin_bloqueado && (
+            <div className="text-xs text-red-600 mt-1">
+              🔒 PIN bloqueado após 3 tentativas. Entre em contato com o suporte.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* PIN Status for Motoboy */}
+      {delivery.pin_confirmacao && userType === 'motoboy' && (
+        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-center gap-2 mb-1">
+            <Shield className="h-4 w-4 text-yellow-600" />
+            <div className="text-sm font-medium text-yellow-700">Validação PIN Necessária</div>
+          </div>
+          <div className="text-xs text-yellow-700">
+            Solicite o PIN de 4 dígitos ao cliente para confirmar a entrega.
+          </div>
+          {delivery.pin_tentativas > 0 && (
+            <div className="text-xs text-orange-600 mt-1">
+              ⚠️ {delivery.pin_tentativas} tentativa(s) realizadas - {3 - delivery.pin_tentativas} restantes
+            </div>
+          )}
+          {delivery.pin_bloqueado && (
+            <div className="text-xs text-red-600 mt-1">
+              🔒 PIN bloqueado. Entre em contato com o suporte.
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Product Information */}
       {delivery.product_description && (
         <div className="mb-4">
