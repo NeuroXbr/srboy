@@ -633,6 +633,69 @@ async def create_delivery(delivery_data: CreateDelivery, credentials: HTTPAuthor
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+@app.post("/api/deliveries/{delivery_id}/accept")
+async def accept_delivery(delivery_id: str, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Motoboy accepts a delivery and generates PIN"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        motoboy_id = payload["user_id"]
+        user_type = payload["user_type"]
+        
+        if user_type != "motoboy":
+            raise HTTPException(status_code=403, detail="Only motoboys can accept deliveries")
+        
+        delivery = deliveries_collection.find_one({"id": delivery_id, "status": "pending"})
+        if not delivery:
+            raise HTTPException(status_code=404, detail="Delivery not found or already assigned")
+        
+        motoboy = users_collection.find_one({"id": motoboy_id, "user_type": "motoboy"})
+        if not motoboy:
+            raise HTTPException(status_code=404, detail="Motoboy not found")
+        
+        # Generate PIN for security
+        pin_completo, pin_confirmacao = generate_delivery_pin()
+        
+        # Update delivery with motoboy and PIN
+        update_result = deliveries_collection.update_one(
+            {"id": delivery_id, "status": "pending"},
+            {
+                "$set": {
+                    "motoboy_id": motoboy_id,
+                    "status": "matched",
+                    "pin_completo": pin_completo,
+                    "pin_confirmacao": pin_confirmacao,
+                    "pin_tentativas": 0,
+                    "pin_bloqueado": False
+                }
+            }
+        )
+        
+        if update_result.modified_count == 0:
+            raise HTTPException(status_code=409, detail="Delivery was already assigned to another motoboy")
+        
+        # Update motoboy availability
+        users_collection.update_one(
+            {"id": motoboy_id},
+            {"$set": {"is_available": False}}
+        )
+        
+        return {
+            "message": "Delivery accepted successfully", 
+            "delivery_id": delivery_id,
+            "pin_confirmacao": pin_confirmacao,  # Return PIN for lojista display
+            "motoboy": {
+                "name": motoboy["name"],
+                "moto_model": motoboy.get("moto_model", "N/A"),
+                "moto_color": motoboy.get("moto_color", "N/A"),
+                "license_plate": motoboy.get("license_plate", "N/A")
+            }
+        }
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
 @app.put("/api/deliveries/{delivery_id}/status")
 async def update_delivery_status(delivery_id: str, status_data: dict, credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Update delivery status with enhanced workflow"""
