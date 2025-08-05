@@ -43,6 +43,8 @@ function App() {
   const [deliveries, setDeliveries] = useState([]);
   const [rankings, setRankings] = useState([]);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [showRegistration, setShowRegistration] = useState(false);
+  const [registrationType, setRegistrationType] = useState('');
 
   // Cities served
   const CITIES = ["Araçariguama", "São Roque", "Mairinque", "Alumínio", "Ibiúna"];
