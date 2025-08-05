@@ -618,14 +618,21 @@ class SrBoyAPITester:
     
     def test_create_delivery_for_pin_testing(self):
         """Create a delivery for PIN system testing"""
-        if not self.lojista_token:
-            self.log_test("Create Delivery for PIN Testing", False, "No lojista token available")
+        if not self.lojista_token or not self.motoboy_token:
+            self.log_test("Create Delivery for PIN Testing", False, "No lojista or motoboy token available")
             return False, None
 
+        # First, make motoboy unavailable to prevent auto-matching
+        users_collection_update = {
+            "is_available": False
+        }
+        
+        # We can't directly access the database, so let's try a different approach
+        # Create a delivery in a city where the motoboy is not based
         delivery_data = {
             "pickup_address": {
                 "street": "Rua das Flores, 123",
-                "city": "São Roque",
+                "city": "Alumínio",  # Different city from motoboy's base city
                 "state": "SP",
                 "zipcode": "18130-000",
                 "lat": -23.5320,
@@ -633,7 +640,7 @@ class SrBoyAPITester:
             },
             "delivery_address": {
                 "street": "Av. Principal, 456",
-                "city": "São Roque", 
+                "city": "Alumínio", 
                 "state": "SP",
                 "zipcode": "18130-100",
                 "lat": -23.5450,
@@ -652,7 +659,8 @@ class SrBoyAPITester:
         
         if success and 'delivery' in data:
             delivery_id = data['delivery']['id']
-            details = f"Delivery created successfully - ID: {delivery_id}, Status: {data['delivery']['status']}"
+            delivery_status = data['delivery']['status']
+            details = f"Delivery created successfully - ID: {delivery_id}, Status: {delivery_status}"
             self.log_test("Create Delivery for PIN Testing", True, details)
             return True, delivery_id
         else:
