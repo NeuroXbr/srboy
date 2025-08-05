@@ -290,6 +290,70 @@ def create_delivery_receipt(delivery: dict, lojista: dict, motoboy: dict) -> dic
     receipt_data.pop("_id", None)
     return receipt_data
 
+def can_create_post_today(user_id: str) -> bool:
+    """Check if user can create a post today (limit: 4 per day)"""
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    tomorrow = today + timedelta(days=1)
+    
+    posts_today = posts_collection.count_documents({
+        "user_id": user_id,
+        "created_at": {"$gte": today, "$lt": tomorrow}
+    })
+    
+    return posts_today < 4
+
+def can_create_story_today(user_id: str) -> bool:
+    """Check if user can create a story today (limit: 4 per day)"""
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    tomorrow = today + timedelta(days=1)
+    
+    stories_today = stories_collection.count_documents({
+        "user_id": user_id,
+        "created_at": {"$gte": today, "$lt": tomorrow},
+        "expires_at": {"$gt": datetime.now()}  # Not expired
+    })
+    
+    return stories_today < 4
+
+def get_user_profile(user_id: str) -> Optional[dict]:
+    """Get or create user profile"""
+    profile = profiles_collection.find_one({"user_id": user_id})
+    
+    if not profile:
+        # Create default profile
+        user = users_collection.find_one({"id": user_id})
+        if not user:
+            return None
+            
+        profile_data = Profile(
+            user_id=user_id,
+            bio="",
+            followers_count=0,
+            following_count=0
+        ).dict()
+        
+        profiles_collection.insert_one(profile_data)
+        profile = profile_data
+        profile.pop("_id", None)
+    else:
+        profile.pop("_id", None)
+    
+    return profile
+
+def update_follow_counts(user_id: str):
+    """Update follower and following counts for a user"""
+    followers_count = follows_collection.count_documents({"followed_id": user_id})
+    following_count = follows_collection.count_documents({"follower_id": user_id})
+    
+    profiles_collection.update_one(
+        {"user_id": user_id},
+        {"$set": {
+            "followers_count": followers_count,
+            "following_count": following_count,
+            "updated_at": datetime.now()
+        }}
+    )
+
 # API Endpoints
 @app.get("/api/health")
 async def health_check():
