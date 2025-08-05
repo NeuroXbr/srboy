@@ -105,6 +105,16 @@ function App() {
     }
   };
 
+  const handleShowRegistration = (userType) => {
+    setRegistrationType(userType);
+    setShowRegistration(true);
+  };
+
+  const handleBackToLogin = () => {
+    setShowRegistration(false);
+    setRegistrationType('');
+  };
+
   const handleGoogleAuth = async (userType) => {
     setLoading(true);
     try {
