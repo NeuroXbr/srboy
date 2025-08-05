@@ -251,6 +251,179 @@ function App() {
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
+  // Social Profile Functions
+  const fetchProfile = async (userId = null) => {
+    try {
+      const targetUserId = userId || user?.id;
+      const response = await fetch(`${API_BASE_URL}/api/profile/${targetUserId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (userId && userId !== user?.id) {
+          setViewingProfile(data);
+          setIsFollowing(data.is_following);
+        } else {
+          setUserProfile(data);
+        }
+        setProfilePosts(data.recent_posts || []);
+        setProfileStories(data.active_stories || []);
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    }
+  };
+
+  const updateProfile = async (profileData) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(profileData)
+      });
+
+      if (response.ok) {
+        fetchProfile(); // Refresh profile
+        setShowEditProfile(false);
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+    }
+  };
+
+  const toggleFollow = async (userId) => {
+    try {
+      const method = isFollowing ? 'DELETE' : 'POST';
+      const response = await fetch(`${API_BASE_URL}/api/follow/${userId}`, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        setIsFollowing(!isFollowing);
+        fetchProfile(userId); // Refresh profile to update counts
+      }
+    } catch (error) {
+      console.error('Error toggling follow:', error);
+    }
+  };
+
+  const createPost = async (postData) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/posts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(postData)
+      });
+
+      if (response.ok) {
+        fetchProfile(); // Refresh to show new post
+        fetchFeedPosts(); // Refresh feed
+        setShowCreatePost(false);
+      } else {
+        const error = await response.json();
+        alert(error.detail);
+      }
+    } catch (error) {
+      console.error('Error creating post:', error);
+    }
+  };
+
+  const createStory = async (storyData) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/stories`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(storyData)
+      });
+
+      if (response.ok) {
+        fetchProfile(); // Refresh to show new story
+        fetchFeedStories(); // Refresh feed
+        setShowCreateStory(false);
+      } else {
+        const error = await response.json();
+        alert(error.detail);
+      }
+    } catch (error) {
+      console.error('Error creating story:', error);
+    }
+  };
+
+  const fetchFeedPosts = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/feed/posts`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setFeedPosts(data.posts || []);
+      }
+    } catch (error) {
+      console.error('Error fetching feed posts:', error);
+    }
+  };
+
+  const fetchFeedStories = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/feed/stories`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setFeedStories(data.stories || []);
+      }
+    } catch (error) {
+      console.error('Error fetching feed stories:', error);
+    }
+  };
+
+  const convertToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const fileReader = new FileReader();
+      fileReader.readAsDataURL(file);
+      fileReader.onload = () => {
+        resolve(fileReader.result);
+      };
+      fileReader.onerror = (error) => {
+        reject(error);
+      };
+    });
+  };
+
+  const renderStars = (rating) => {
+    const stars = [];
+    for (let i = 1; i <= 5; i++) {
+      stars.push(
+        <Star
+          key={i}
+          className={`w-4 h-4 ${i <= rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+        />
+      );
+    }
+    return stars;
+  };
+
   const getStatusText = (status) => {
     const texts = {
       pending: 'Pendente',
