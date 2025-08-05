@@ -122,24 +122,215 @@ class SrBoyAPITester:
         self.log_test("Lojista Authentication", success, details)
         return success
 
-    def test_admin_authentication(self):
-        """Test admin authentication"""
+    def test_admin_login(self):
+        """Test admin login endpoint"""
         auth_data = {
             "email": "admin@srboy.com",
-            "name": "Admin User",
-            "user_type": "admin"
+            "name": "Naldino - Admin"
         }
         
-        success, status, data = self.make_request('POST', '/api/auth/google', auth_data)
+        success, status, data = self.make_request('POST', '/api/admin/login', auth_data)
         
-        if success and 'token' in data and 'user' in data:
+        if success and 'token' in data and 'admin' in data:
             self.admin_token = data['token']
-            self.admin_user = data['user']
-            details = f"Admin User: {data['user']['name']}"
+            self.admin_user = data['admin']
+            admin_data = data['admin']
+            permissions = admin_data.get('permissions', [])
+            details = f"Admin: {admin_data['name']}, Permissions: {', '.join(permissions)}"
         else:
             details = f"Status: {status}, Response: {data}"
         
-        self.log_test("Admin Authentication", success, details)
+        self.log_test("Admin Login", success, details)
+        return success
+
+    def test_admin_dashboard(self):
+        """Test admin dashboard endpoint"""
+        if not self.admin_token:
+            self.log_test("Admin Dashboard", False, "No admin token available")
+            return False
+
+        success, status, data = self.make_request('GET', '/api/admin/dashboard', token=self.admin_token)
+        
+        if success and 'overview' in data and 'financial' in data and 'security' in data:
+            overview = data['overview']
+            financial = data['financial']
+            security = data['security']
+            city_stats = data.get('city_statistics', {})
+            
+            details = f"Dashboard loaded - Users: {overview.get('total_users', 0)}, Deliveries: {overview.get('total_deliveries', 0)}, Revenue: R$ {financial.get('total_revenue', 0):.2f}, Cities: {len(city_stats)}, PIN System: {security.get('pin_system', {}).get('deliveries_with_pin', 0)} deliveries with PIN"
+        else:
+            details = f"Status: {status}, Response: {data}"
+        
+        self.log_test("Admin Dashboard", success, details)
+        return success
+
+    def test_admin_dashboard_unauthorized(self):
+        """Test admin dashboard with non-admin user (should fail)"""
+        if not self.motoboy_token:
+            self.log_test("Admin Dashboard Unauthorized", False, "No motoboy token available")
+            return False
+
+        success, status, data = self.make_request('GET', '/api/admin/dashboard', token=self.motoboy_token, expected_status=403)
+        
+        if status == 403 and "Admin access required" in data.get('detail', ''):
+            success = True
+            details = "Authorization working - correctly blocked non-admin access to dashboard"
+        else:
+            success = False
+            details = f"Expected 403 with admin required error, got {status}: {data}"
+        
+        self.log_test("Admin Dashboard Unauthorized", success, details)
+        return success
+
+    def test_admin_users_management(self):
+        """Test admin users management endpoint"""
+        if not self.admin_token:
+            self.log_test("Admin Users Management", False, "No admin token available")
+            return False
+
+        # Test without filters
+        success, status, data = self.make_request('GET', '/api/admin/users', token=self.admin_token)
+        
+        if success and 'users' in data and 'pagination' in data:
+            users = data['users']
+            pagination = data['pagination']
+            details = f"Users loaded - Total: {len(users)}, Pagination: page {pagination.get('page', 1)}/{pagination.get('pages', 1)}"
+            
+            # Test with motoboy filter
+            success2, status2, data2 = self.make_request('GET', '/api/admin/users?user_type=motoboy', token=self.admin_token)
+            if success2 and 'users' in data2:
+                motoboy_users = [u for u in data2['users'] if u.get('user_type') == 'motoboy']
+                details += f", Motoboys filtered: {len(motoboy_users)}"
+                
+                # Test with lojista filter
+                success3, status3, data3 = self.make_request('GET', '/api/admin/users?user_type=lojista', token=self.admin_token)
+                if success3 and 'users' in data3:
+                    lojista_users = [u for u in data3['users'] if u.get('user_type') == 'lojista']
+                    details += f", Lojistas filtered: {len(lojista_users)}"
+        else:
+            details = f"Status: {status}, Response: {data}"
+        
+        self.log_test("Admin Users Management", success, details)
+        return success
+
+    def test_admin_deliveries_management(self):
+        """Test admin deliveries management endpoint"""
+        if not self.admin_token:
+            self.log_test("Admin Deliveries Management", False, "No admin token available")
+            return False
+
+        # Test without filters
+        success, status, data = self.make_request('GET', '/api/admin/deliveries', token=self.admin_token)
+        
+        if success and 'deliveries' in data and 'pagination' in data:
+            deliveries = data['deliveries']
+            pagination = data['pagination']
+            details = f"Deliveries loaded - Total: {len(deliveries)}, Pagination: page {pagination.get('page', 1)}/{pagination.get('pages', 1)}"
+            
+            # Check data enrichment (user names)
+            enriched_count = 0
+            for delivery in deliveries:
+                if delivery.get('lojista_name') or delivery.get('motoboy_name'):
+                    enriched_count += 1
+            
+            details += f", Enriched with user names: {enriched_count}/{len(deliveries)}"
+            
+            # Test with status filter
+            success2, status2, data2 = self.make_request('GET', '/api/admin/deliveries?status=delivered', token=self.admin_token)
+            if success2 and 'deliveries' in data2:
+                delivered_deliveries = [d for d in data2['deliveries'] if d.get('status') == 'delivered']
+                details += f", Delivered filtered: {len(delivered_deliveries)}"
+        else:
+            details = f"Status: {status}, Response: {data}"
+        
+        self.log_test("Admin Deliveries Management", success, details)
+        return success
+
+    def test_admin_user_actions(self):
+        """Test admin user actions endpoint"""
+        if not self.admin_token or not self.motoboy_user:
+            self.log_test("Admin User Actions", False, "No admin token or motoboy user available")
+            return False
+
+        user_id = self.motoboy_user['id']
+        
+        # Test suspend action
+        action_data = {
+            "action": "suspend",
+            "reason": "Testing admin actions",
+            "duration_hours": 24
+        }
+        
+        success, status, data = self.make_request('POST', f'/api/admin/user/{user_id}/action', action_data, self.admin_token)
+        
+        if success and 'message' in data and 'action_details' in data:
+            action_details = data['action_details']
+            details = f"Suspend action executed - Action: {action_details.get('action')}, Reason: {action_details.get('reason')}"
+            
+            # Test activate action
+            activate_data = {
+                "action": "activate",
+                "reason": "Testing activation"
+            }
+            
+            success2, status2, data2 = self.make_request('POST', f'/api/admin/user/{user_id}/action', activate_data, self.admin_token)
+            if success2:
+                details += ", Activate action also executed successfully"
+                
+                # Test flag_for_review action
+                flag_data = {
+                    "action": "flag_for_review",
+                    "reason": "Testing flag system"
+                }
+                
+                success3, status3, data3 = self.make_request('POST', f'/api/admin/user/{user_id}/action', flag_data, self.admin_token)
+                if success3:
+                    details += ", Flag action also executed successfully"
+        else:
+            details = f"Status: {status}, Response: {data}"
+        
+        self.log_test("Admin User Actions", success, details)
+        return success
+
+    def test_admin_analytics(self):
+        """Test admin analytics endpoint"""
+        if not self.admin_token:
+            self.log_test("Admin Analytics", False, "No admin token available")
+            return False
+
+        success, status, data = self.make_request('GET', '/api/admin/analytics?period=7d', token=self.admin_token)
+        
+        if success and 'daily_statistics' in data and 'performance_metrics' in data and 'top_performers' in data:
+            daily_stats = data['daily_statistics']
+            performance = data['performance_metrics']
+            top_performers = data['top_performers']
+            
+            details = f"Analytics loaded - Period: {data.get('period', 'N/A')}, Daily stats: {len(daily_stats)} days, Success rate: {performance.get('success_rate', 0)}%, Top motoboys: {len(top_performers.get('motoboys', []))}, Top lojistas: {len(top_performers.get('lojistas', []))}"
+        else:
+            details = f"Status: {status}, Response: {data}"
+        
+        self.log_test("Admin Analytics", success, details)
+        return success
+
+    def test_admin_financial_report(self):
+        """Test admin financial report endpoint"""
+        if not self.admin_token:
+            self.log_test("Admin Financial Report", False, "No admin token available")
+            return False
+
+        success, status, data = self.make_request('GET', '/api/admin/financial-report?period=30d', token=self.admin_token)
+        
+        if success and 'summary' in data and 'city_breakdown' in data and 'payment_methods' in data:
+            summary = data['summary']
+            city_breakdown = data['city_breakdown']
+            payment_methods = data['payment_methods']
+            trends = data.get('trends', {})
+            
+            details = f"Financial report loaded - Period: {data.get('period', 'N/A')}, Revenue: R$ {summary.get('total_revenue', 0):.2f}, Platform fees: R$ {summary.get('total_platform_fees', 0):.2f}, Cities: {len(city_breakdown)}, Payment methods: {len(payment_methods)}, Revenue growth: {trends.get('revenue_growth', 0)}%"
+        else:
+            details = f"Status: {status}, Response: {data}"
+        
+        self.log_test("Admin Financial Report", success, details)
         return success
 
     def test_social_profile_get(self):
