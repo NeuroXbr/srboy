@@ -168,6 +168,37 @@ function App() {
     }
   };
 
+  const handleAdminLogin = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email: 'admin@srboy.com',
+          name: 'Naldino - Admin'
+        })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        localStorage.setItem('token', data.token);
+        setToken(data.token);
+        setUser(data.admin);
+        setUser(prev => ({...prev, user_type: 'admin'}));
+      } else {
+        alert('Erro no login admin: ' + data.detail);
+      }
+    } catch (error) {
+      alert('Erro de conexão admin');
+      console.error('Admin login error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleLogout = () => {
     setUser(null);
     setToken(null);
