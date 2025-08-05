@@ -1284,6 +1284,76 @@ async def moderate_chat_endpoint(message_data: dict, credentials: HTTPAuthorizat
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+def create_demo_profile(user_data):
+    """Create demo profile with sample posts and stories"""
+    import random
+    
+    user_id = user_data["id"]
+    user_type = user_data["user_type"]
+    name = user_data["name"]
+    
+    # Create profile
+    if user_type == "motoboy":
+        bio = f"🏍️ Motoboy experiente em {user_data.get('base_city', 'São Roque')}! Sempre pontual e cuidadoso com as entregas. {user_data.get('total_deliveries', 0)}+ entregas realizadas com sucesso! ⭐ Avaliação média: {user_data.get('ranking_score', 100)/20:.1f}/5"
+    else:
+        bio = f"🏪 {user_data.get('fantasy_name', 'Loja')} - {user_data.get('category', 'Comércio')} de qualidade! Atendemos toda região com produtos selecionados. Parceiros SrBoy desde 2024! 📦 {user_data.get('total_deliveries', 0)}+ pedidos entregues!"
+    
+    profile_data = Profile(
+        user_id=user_id,
+        bio=bio,
+        followers_count=random.randint(15, 85),
+        following_count=random.randint(10, 45)
+    ).dict()
+    
+    profiles_collection.insert_one(profile_data)
+    
+    # Create sample posts
+    sample_posts = []
+    if user_type == "motoboy":
+        sample_posts = [
+            "Mais um dia de trabalho! Acabei de finalizar uma entrega em Mairinque. Cliente super educado! 🏍️✨",
+            "Pessoal, cuidado na Rua das Flores - tem obras na pista. Trânsito um pouco lento por lá! 🚧",
+            "Entrega especial hoje: um bolo de aniversário! A felicidade da cliente quando chegou em casa foi impagável! 🎂❤️"
+        ]
+    else:
+        sample_posts = [
+            f"Promoção especial na {user_data.get('fantasy_name', 'loja')}! Entrega rápida com SrBoy para toda região! 🚀",
+            "Novos produtos chegaram! Qualidade garantida e entrega no mesmo dia. Peça já pelo app! 📦✨",
+            "Agradecemos a todos nossos clientes pela confiança. Juntos fazemos a diferença na região! ❤️🙏"
+        ]
+    
+    for i, content in enumerate(sample_posts[:2]):  # Only 2 posts to respect demo limits
+        post_data = Post(
+            user_id=user_id,
+            content=content,
+            likes_count=random.randint(5, 25),
+            comments_count=random.randint(0, 8),
+            created_at=datetime.now() - timedelta(days=random.randint(1, 7))
+        ).dict()
+        posts_collection.insert_one(post_data)
+    
+    # Create sample stories
+    sample_stories = []
+    if user_type == "motoboy":
+        sample_stories = [
+            "Começando o dia! ☀️ Primeira entrega já confirmada!",
+            "Parada para o almoço em São Roque! 🍽️"
+        ]
+    else:
+        sample_stories = [
+            "Produtos frescos chegando agora! 📦",
+            f"Atendimento especial na {user_data.get('fantasy_name', 'loja')}! ✨"
+        ]
+    
+    for i, content in enumerate(sample_stories[:2]):  # Only 2 stories
+        story_data = Story(
+            user_id=user_id,
+            content=content,
+            created_at=datetime.now() - timedelta(hours=random.randint(1, 12)),
+            expires_at=datetime.now() + timedelta(hours=random.randint(6, 23))
+        ).dict()
+        stories_collection.insert_one(story_data)
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
