@@ -2007,7 +2007,7 @@ function MotoboyRegistration({ onBack, onRegister }) {
             </div>
           </div>
           <h1 className="text-4xl font-bold text-white mb-4">Cadastro de Motoboy</h1>
-          <p className="text-blue-200">Junte-se ao SrBoy e faça parte do sistema de entregas mais justo da região</p>
+          <p className="text-blue-200">Junte-se ao <span translate="no">SrBoy</span> e faça parte do sistema de entregas mais justo da região</p>
           
           {/* Progress Steps */}
           <div className="flex justify-center mt-8 mb-8">
