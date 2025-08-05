@@ -658,7 +658,13 @@ async def accept_delivery(delivery_id: str, credentials: HTTPAuthorizationCreden
         if user_type != "motoboy":
             raise HTTPException(status_code=403, detail="Only motoboys can accept deliveries")
         
-        delivery = deliveries_collection.find_one({"id": delivery_id, "status": "pending"})
+        # Look for delivery that is either pending or matched to this motoboy without PIN
+        delivery = deliveries_collection.find_one({
+            "$or": [
+                {"id": delivery_id, "status": "pending"},
+                {"id": delivery_id, "status": "matched", "motoboy_id": motoboy_id, "pin_confirmacao": {"$exists": False}}
+            ]
+        })
         if not delivery:
             raise HTTPException(status_code=404, detail="Delivery not found or already assigned")
         
