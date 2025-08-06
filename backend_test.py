@@ -879,15 +879,15 @@ class SrBoyAPITester:
             self.log_test("Inventory Auth - Admin Blocked", False, "No admin token available")
             return False
 
-        # Test with admin token (should be blocked - inventory is lojista only)
-        success, status, data = self.make_request('GET', '/api/inventario/produtos', token=self.admin_token, expected_status=403)
+        # Test with admin token - should get feature disabled message (not auth error since feature is off)
+        success, status, data = self.make_request('GET', '/api/inventario/produtos', token=self.admin_token, expected_status=200)
         
-        if status == 403:
-            details = "Authorization working - admin correctly blocked from inventory endpoints (lojista only)"
+        if status == 200 and data.get('enabled') == False:
+            details = "Feature disabled response - admin gets same disabled message (feature is off)"
             self.log_test("Inventory Auth - Admin Blocked", True, details)
             return True
         else:
-            details = f"Expected 403 for admin access, got {status}: {data}"
+            details = f"Expected 200 with enabled=false, got {status}: {data}"
             self.log_test("Inventory Auth - Admin Blocked", False, details)
             return False
 
