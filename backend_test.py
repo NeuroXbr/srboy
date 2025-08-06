@@ -1504,6 +1504,23 @@ class SrBoyAPITester:
         self.test_chat_moderation()
         self.test_chat_moderation_profanity()
         
+        # Cluster Data Connector Tests
+        print("\n🏢 Cluster Data Connector Tests")
+        print("-" * 35)
+        self.test_cluster_health_check()
+        
+        # Inventory System Tests
+        print("\n📦 Inventory System Tests")
+        print("-" * 30)
+        self.test_inventory_feature_disabled_by_default()
+        self.test_inventory_authentication_motoboy_blocked()
+        self.test_inventory_authentication_admin_blocked()
+        self.test_inventory_upload_endpoint_structure()
+        self.test_inventory_manual_crud_endpoints_structure()
+        self.test_inventory_data_models_validation()
+        self.test_inventory_dependencies_openpyxl()
+        self.test_environment_configuration_flags()
+        
         # Print summary
         print("\n" + "=" * 70)
         print(f"📊 Test Summary: {self.tests_passed}/{self.tests_run} tests passed")
