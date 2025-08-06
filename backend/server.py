@@ -16,6 +16,11 @@ from security_algorithms import analyze_motoboy_security, optimize_delivery_rout
 # Admin Dashboard specific imports
 from datetime import timedelta
 
+# Stripe Payment Integration (READY FOR PRODUCTION)
+from stripe_payments import stripe_payments, get_stripe_public_key, calculate_platform_fee, format_currency_brl
+import stripe
+import random
+
 app = FastAPI(title="SrBoy Delivery API", version="2.0.0")
 
 # CORS configuration
