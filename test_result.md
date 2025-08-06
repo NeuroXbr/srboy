@@ -210,9 +210,11 @@ frontend:
 
 metadata:
   created_by: "main_agent"
-  version: "2.0"
-  test_sequence: 2
+  version: "3.0"
+  test_sequence: 3
   run_ui: false
+  last_tested_by: "testing_agent"
+  testing_completed: true
 
 test_plan:
   current_focus: []
