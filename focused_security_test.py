@@ -7,7 +7,7 @@ import requests
 import json
 
 def test_security_analysis():
-    base_url = "https://3b17a2db-24f5-40f1-9939-0c2c2ef10d9a.preview.emergentagent.com"
+    base_url = "https://d5522c0e-4488-4e1e-8d01-1376cee7c946.preview.emergentagent.com"
     
     # First authenticate as admin
     auth_data = {

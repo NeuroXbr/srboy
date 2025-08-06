@@ -11,7 +11,7 @@ import base64
 from datetime import datetime, timedelta
 
 class SrBoyAPITester:
-    def __init__(self, base_url="https://3b17a2db-24f5-40f1-9939-0c2c2ef10d9a.preview.emergentagent.com"):
+    def __init__(self, base_url="https://d5522c0e-4488-4e1e-8d01-1376cee7c946.preview.emergentagent.com"):
         self.base_url = base_url
         self.motoboy_token = None
         self.lojista_token = None
