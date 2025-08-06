@@ -43,6 +43,23 @@ posts_collection = db.posts
 stories_collection = db.stories
 follows_collection = db.follows
 
+# ============================================
+# E-COMMERCE & MARKETPLACE COLLECTIONS (FUTURE USE)
+# ============================================
+products_collection = db.products
+product_categories_collection = db.product_categories
+shopping_carts_collection = db.shopping_carts
+cart_items_collection = db.cart_items
+ecommerce_orders_collection = db.ecommerce_orders
+
+# Fast Food Collections
+fastfood_menus_collection = db.fastfood_menus
+fastfood_items_collection = db.fastfood_items
+
+# Stripe Payment Collections
+stripe_accounts_collection = db.stripe_accounts
+payment_transactions_collection = db.payment_transactions
+
 # Security
 security = HTTPBearer()
 JWT_SECRET = os.environ.get('JWT_SECRET', 'srboy-secret-key-2024')
