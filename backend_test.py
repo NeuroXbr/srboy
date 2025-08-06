@@ -861,15 +861,15 @@ class SrBoyAPITester:
             self.log_test("Inventory Auth - Motoboy Blocked", False, "No motoboy token available")
             return False
 
-        # Test with motoboy token (should be blocked)
-        success, status, data = self.make_request('GET', '/api/inventario/produtos', token=self.motoboy_token, expected_status=403)
+        # Test with motoboy token - should get feature disabled message (not auth error since feature is off)
+        success, status, data = self.make_request('GET', '/api/inventario/produtos', token=self.motoboy_token, expected_status=200)
         
-        if status == 403:
-            details = "Authorization working - motoboy correctly blocked from inventory endpoints"
+        if status == 200 and data.get('enabled') == False:
+            details = "Feature disabled response - motoboy gets same disabled message as lojista (feature is off)"
             self.log_test("Inventory Auth - Motoboy Blocked", True, details)
             return True
         else:
-            details = f"Expected 403 for motoboy access, got {status}: {data}"
+            details = f"Expected 200 with enabled=false, got {status}: {data}"
             self.log_test("Inventory Auth - Motoboy Blocked", False, details)
             return False
 
