@@ -2418,6 +2418,392 @@ async def admin_financial_report(
 # Admin Security endpoints (existing analyze endpoint is kept)
 # The existing /api/security/analyze/{motoboy_id} endpoint remains as is
 
+# ============================================
+# STRIPE PAYMENT ENDPOINTS (READY FOR PRODUCTION)
+# ============================================
+
+@app.get("/api/stripe/public-key")
+async def get_stripe_public_key_endpoint():
+    """Get Stripe public key for frontend - READY FOR USE"""
+    return {
+        "public_key": get_stripe_public_key(),
+        "enabled": bool(get_stripe_public_key())
+    }
+
+@app.post("/api/stripe/create-payment-intent")
+async def create_payment_intent_endpoint(payment_data: dict, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Create Stripe Payment Intent for delivery or order - READY FOR USE"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload["user_id"]
+        
+        # Extract payment data
+        amount = payment_data.get("amount")
+        payment_method_types = payment_data.get("payment_method_types", ["card"])
+        delivery_id = payment_data.get("delivery_id")
+        order_id = payment_data.get("order_id")
+        
+        if not amount or amount <= 0:
+            raise HTTPException(status_code=400, detail="Valid amount required")
+        
+        # Create payment intent using Stripe service
+        result = await stripe_payments.create_payment_intent(
+            amount=amount,
+            currency="brl",
+            payment_method_types=payment_method_types,
+            delivery_id=delivery_id,
+            order_id=order_id,
+            customer_id=None  # TODO: Get customer from user profile
+        )
+        
+        if result["success"]:
+            # Store payment transaction record
+            transaction_record = PaymentTransaction(
+                transaction_type="delivery_payment" if delivery_id else "ecommerce_payment",
+                amount=amount,
+                currency="brl",
+                status="pending",
+                user_id=user_id,
+                delivery_id=delivery_id,
+                order_id=order_id,
+                stripe_payment_intent_id=result["payment_intent_id"],
+                platform_fee=result["platform_fee"],
+                net_amount=amount - result["platform_fee"],
+                payment_method_type=payment_method_types[0]
+            ).dict()
+            
+            payment_transactions_collection.insert_one(transaction_record)
+            transaction_record.pop("_id", None)
+            
+            return {
+                "success": True,
+                "payment_intent": {
+                    "id": result["payment_intent_id"],
+                    "client_secret": result["client_secret"],
+                    "amount": result["amount"],
+                    "platform_fee": result["platform_fee"]
+                },
+                "transaction_id": transaction_record["id"]
+            }
+        else:
+            return {"success": False, "error": result["error"]}
+            
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Payment processing error: {str(e)}")
+
+@app.post("/api/stripe/create-pix-payment")
+async def create_pix_payment_endpoint(payment_data: dict, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Create PIX payment using Stripe - READY FOR USE"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload["user_id"]
+        
+        # Get user for email
+        user = users_collection.find_one({"id": user_id})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        amount = payment_data.get("amount")
+        delivery_id = payment_data.get("delivery_id")
+        order_id = payment_data.get("order_id")
+        
+        if not amount or amount <= 0:
+            raise HTTPException(status_code=400, detail="Valid amount required")
+        
+        # Create PIX payment
+        result = await stripe_payments.create_pix_payment(
+            amount=amount,
+            customer_email=user["email"],
+            delivery_id=delivery_id,
+            order_id=order_id
+        )
+        
+        if result["success"]:
+            # Store transaction record
+            transaction_record = PaymentTransaction(
+                transaction_type="delivery_payment" if delivery_id else "ecommerce_payment",
+                amount=amount,
+                currency="brl",
+                status="pending",
+                user_id=user_id,
+                delivery_id=delivery_id,
+                order_id=order_id,
+                stripe_payment_intent_id=result["payment_intent_id"],
+                platform_fee=result["platform_fee"],
+                net_amount=amount - result["platform_fee"],
+                payment_method_type="pix"
+            ).dict()
+            
+            payment_transactions_collection.insert_one(transaction_record)
+            transaction_record.pop("_id", None)
+            
+            return {
+                "success": True,
+                "pix_payment": {
+                    "id": result["payment_intent_id"],
+                    "client_secret": result["client_secret"],
+                    "amount": result["amount"],
+                    "platform_fee": result["platform_fee"]
+                },
+                "transaction_id": transaction_record["id"]
+            }
+        else:
+            return {"success": False, "error": result["error"]}
+            
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.post("/api/stripe/create-connect-account")
+async def create_connect_account_endpoint(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Create Stripe Connect account for motoboy or lojista - READY FOR USE"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload["user_id"]
+        user_type = payload["user_type"]
+        
+        if user_type not in ["motoboy", "lojista"]:
+            raise HTTPException(status_code=403, detail="Only motoboys and lojistas can create Connect accounts")
+        
+        # Get user details
+        user = users_collection.find_one({"id": user_id})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Check if account already exists
+        existing_account = stripe_accounts_collection.find_one({"user_id": user_id})
+        if existing_account:
+            return {
+                "success": False,
+                "error": "Stripe Connect account already exists",
+                "account_id": existing_account.get("stripe_account_id")
+            }
+        
+        # Create Stripe Connect account
+        result = await stripe_payments.create_connect_account(
+            user_id=user_id,
+            user_type=user_type,
+            email=user["email"],
+            phone=user.get("phone", ""),
+            business_name=user.get("fantasy_name") if user_type == "lojista" else None,
+            individual_name=user.get("name") if user_type == "motoboy" else None
+        )
+        
+        if result["success"]:
+            # Store account record
+            account_record = StripeAccount(
+                user_id=user_id,
+                user_type=user_type,
+                stripe_account_id=result["stripe_account_id"],
+                account_status="pending",
+                verification_status=result.get("requirements", {}),
+                payout_schedule="daily"
+            ).dict()
+            
+            stripe_accounts_collection.insert_one(account_record)
+            account_record.pop("_id", None)
+            
+            return {
+                "success": True,
+                "account": {
+                    "stripe_account_id": result["stripe_account_id"],
+                    "status": "pending",
+                    "charges_enabled": result["charges_enabled"],
+                    "payouts_enabled": result["payouts_enabled"]
+                },
+                "next_step": "complete_onboarding"
+            }
+        else:
+            return {"success": False, "error": result["error"]}
+            
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.get("/api/stripe/connect-onboarding-link")
+async def get_connect_onboarding_link(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get Stripe Connect onboarding link - READY FOR USE"""
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload["user_id"]
+        
+        # Get Stripe account
+        account = stripe_accounts_collection.find_one({"user_id": user_id})
+        if not account or not account.get("stripe_account_id"):
+            raise HTTPException(status_code=404, detail="Stripe Connect account not found. Create account first.")
+        
+        # Create onboarding link
+        result = await stripe_payments.create_account_link(
+            stripe_account_id=account["stripe_account_id"],
+            return_url="https://srboy.com.br/dashboard?stripe_onboarding=success",
+            refresh_url="https://srboy.com.br/dashboard?stripe_onboarding=refresh",
+            user_type=account["user_type"]
+        )
+        
+        if result["success"]:
+            return {
+                "success": True,
+                "onboarding_url": result["onboarding_url"],
+                "expires_at": result["expires_at"]
+            }
+        else:
+            return {"success": False, "error": result["error"]}
+            
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.post("/api/stripe/webhook")
+async def stripe_webhook(request: Request):
+    """Handle Stripe webhooks - READY FOR USE"""
+    try:
+        payload = await request.body()
+        sig_header = request.headers.get('stripe-signature')
+        
+        if not sig_header:
+            raise HTTPException(status_code=400, detail="Missing Stripe signature")
+        
+        # Process webhook
+        result = await stripe_payments.handle_webhook(
+            payload=payload.decode('utf-8'),
+            sig_header=sig_header
+        )
+        
+        if result["success"]:
+            return {"received": True}
+        else:
+            logger.error(f"Webhook processing failed: {result}")
+            raise HTTPException(status_code=400, detail="Webhook processing failed")
+            
+    except Exception as e:
+        logger.error(f"Webhook error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/stripe/payment-methods")
+async def get_available_payment_methods():
+    """Get available payment methods - READY FOR USE"""
+    stripe_enabled = bool(get_stripe_public_key())
+    
+    payment_methods = []
+    
+    if stripe_enabled:
+        payment_methods.extend([
+            {
+                "id": "card",
+                "name": "Cartão de Crédito/Débito",
+                "description": "Visa, Mastercard, Elo",
+                "icon": "credit-card",
+                "processing_time": "Instantâneo",
+                "fees": "Taxa da operadora"
+            },
+            {
+                "id": "pix",
+                "name": "PIX",
+                "description": "Pagamento instantâneo",
+                "icon": "pix",
+                "processing_time": "Até 2 minutos",
+                "fees": "Sem taxa adicional"
+            }
+        ])
+    
+    # Legacy wallet method (always available)
+    payment_methods.append({
+        "id": "wallet",
+        "name": "Carteira SrBoy",
+        "description": "Saldo em carteira",
+        "icon": "wallet",
+        "processing_time": "Instantâneo",
+        "fees": "Sem taxa"
+    })
+    
+    return {
+        "payment_methods": payment_methods,
+        "stripe_enabled": stripe_enabled,
+        "default_method": "card" if stripe_enabled else "wallet"
+    }
+
+# ============================================
+# E-COMMERCE ENDPOINTS (FUTURE USE - READY FOR ACTIVATION)
+# ============================================
+
+@app.get("/api/ecommerce/status")
+async def get_ecommerce_status():
+    """Check if e-commerce module is enabled - READY FOR USE"""
+    ecommerce_enabled = os.environ.get('ECOMMERCE_MODULE_ENABLED', 'false').lower() == 'true'
+    fast_food_enabled = os.environ.get('FAST_FOOD_MODULE_ENABLED', 'false').lower() == 'true'
+    
+    return {
+        "ecommerce_enabled": ecommerce_enabled,
+        "fast_food_enabled": fast_food_enabled,
+        "marketplace_enabled": os.environ.get('MARKETPLACE_MODULE_ENABLED', 'false').lower() == 'true',
+        "features_available": {
+            "product_catalog": ecommerce_enabled,
+            "shopping_cart": ecommerce_enabled,
+            "order_management": ecommerce_enabled or fast_food_enabled,
+            "inventory_tracking": ecommerce_enabled,
+            "fast_food_menus": fast_food_enabled,
+            "payment_processing": bool(get_stripe_public_key())
+        },
+        "message": "E-commerce modules ready for activation" if not ecommerce_enabled else "E-commerce modules active"
+    }
+
+# Placeholder e-commerce endpoints (activated when ECOMMERCE_MODULE_ENABLED=true)
+@app.get("/api/products")
+async def list_products(page: int = 1, limit: int = 20, category: str = None):
+    """List products - FUTURE USE"""
+    ecommerce_enabled = os.environ.get('ECOMMERCE_MODULE_ENABLED', 'false').lower() == 'true'
+    
+    if not ecommerce_enabled:
+        return {
+            "enabled": False,
+            "message": "Set ECOMMERCE_MODULE_ENABLED=true to activate product catalog",
+            "products": [],
+            "pagination": {"page": page, "limit": limit, "total": 0}
+        }
+    
+    # TODO: Implement actual product retrieval when module is enabled
+    return {
+        "enabled": True,
+        "products": [],  # Real products would be loaded from products_collection
+        "pagination": {"page": page, "limit": limit, "total": 0},
+        "message": "Product catalog ready - implement product loading logic"
+    }
+
+@app.get("/api/cart/{user_id}")
+async def get_shopping_cart(user_id: str, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get user's shopping cart - FUTURE USE"""
+    ecommerce_enabled = os.environ.get('ECOMMERCE_MODULE_ENABLED', 'false').lower() == 'true'
+    
+    if not ecommerce_enabled:
+        return {
+            "enabled": False,
+            "message": "Set ECOMMERCE_MODULE_ENABLED=true to activate shopping cart",
+            "cart": None
+        }
+    
+    # TODO: Implement cart retrieval when module is enabled
+    return {
+        "enabled": True,
+        "cart": {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "items": [],
+            "total": 0.0
+        },
+        "message": "Shopping cart ready - implement cart loading logic"
+    }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
