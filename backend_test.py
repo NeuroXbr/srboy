@@ -843,15 +843,15 @@ class SrBoyAPITester:
             self.log_test("Inventory Feature Disabled", False, "No lojista token available")
             return False
 
-        # Test upload endpoint when feature is disabled
-        success, status, data = self.make_request('GET', '/api/inventario/produtos', token=self.lojista_token, expected_status=403)
+        # Test products endpoint when feature is disabled
+        success, status, data = self.make_request('GET', '/api/inventario/produtos', token=self.lojista_token, expected_status=200)
         
-        if status == 403 and "feature não está habilitada" in data.get('detail', '').lower():
-            details = "Inventory feature correctly disabled - upload blocked with proper message"
+        if status == 200 and data.get('enabled') == False and 'desabilitado' in data.get('message', ''):
+            details = f"Inventory feature correctly disabled - Message: {data.get('message', '')}"
             self.log_test("Inventory Feature Disabled", True, details)
             return True
         else:
-            details = f"Expected 403 with feature disabled message, got {status}: {data}"
+            details = f"Expected 200 with enabled=false, got {status}: {data}"
             self.log_test("Inventory Feature Disabled", False, details)
             return False
 
