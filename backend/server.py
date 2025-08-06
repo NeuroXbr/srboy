@@ -56,6 +56,12 @@ stories_collection = db.stories
 follows_collection = db.follows
 
 # ============================================
+# INVENTORY MANAGEMENT COLLECTIONS
+# ============================================
+inventory_items_collection = db.inventory_items
+inventory_batches_collection = db.inventory_batches
+
+# ============================================
 # E-COMMERCE & MARKETPLACE COLLECTIONS (FUTURE USE)
 # ============================================
 products_collection = db.products
