@@ -897,16 +897,16 @@ class SrBoyAPITester:
             self.log_test("Inventory Upload Structure", False, "No lojista token available")
             return False
 
-        # Test POST to upload endpoint - should return proper error structure
+        # Test POST to upload endpoint - should return proper disabled response
         upload_data = {
             "file_type": "xlsx",
             "filename": "test_inventory.xlsx"
         }
         
-        success, status, data = self.make_request('POST', '/api/inventario/upload', upload_data, self.lojista_token, expected_status=403)
+        success, status, data = self.make_request('POST', '/api/inventario/upload', upload_data, self.lojista_token, expected_status=200)
         
-        if status == 403 and 'detail' in data:
-            details = f"Upload endpoint structure correct - proper error response: {data.get('detail', '')}"
+        if status == 200 and data.get('enabled') == False and data.get('upload_success') == False:
+            details = f"Upload endpoint structure correct - Feature disabled response: {data.get('message', '')}"
             self.log_test("Inventory Upload Structure", True, details)
             return True
         else:
