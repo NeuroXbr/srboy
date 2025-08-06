@@ -437,6 +437,71 @@ class PaymentTransaction(BaseModel):
     created_at: datetime = Field(default_factory=datetime.now)
     processed_at: Optional[datetime] = None
 
+# ============================================
+# INVENTORY MANAGEMENT MODELS
+# ============================================
+
+class InventoryItem(BaseModel):
+    """Inventory item model for lojista product management"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    lojista_id: str
+    
+    # Basic Product Information
+    nome: str = Field(max_length=200)
+    descricao: Optional[str] = Field(max_length=1000)
+    preco: float = Field(gt=0)
+    codigo_interno: Optional[str] = Field(max_length=50)  # SKU/Internal Code
+    
+    # Inventory Management
+    estoque: int = Field(default=0, ge=0)  # Current stock
+    estoque_minimo: int = Field(default=5, ge=0)  # Minimum stock alert
+    categoria: Optional[str] = Field(max_length=100)
+    unidade_medida: str = Field(default="un")  # un, kg, l, m, etc.
+    
+    # Status and Control
+    ativo: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+    
+    # Import metadata (for bulk uploads)
+    import_batch_id: Optional[str] = None
+    import_source: Optional[str] = None  # manual, xlsx, csv
+
+class InventoryBatchUpload(BaseModel):
+    """Batch upload model for inventory items"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    lojista_id: str
+    
+    # File Information
+    filename: str
+    file_size: int
+    file_type: str  # xlsx, csv
+    total_rows: int
+    
+    # Processing Status
+    status: str = Field(default="pending")  # pending, processing, completed, failed
+    processed_rows: int = Field(default=0)
+    successful_imports: int = Field(default=0)
+    failed_imports: int = Field(default=0)
+    
+    # Field Mapping
+    field_mapping: dict = Field(default_factory=dict)  # Column mapping
+    validation_errors: List[dict] = Field(default_factory=list)
+    
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.now)
+    processed_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+class InventoryFieldMapping(BaseModel):
+    """Field mapping for Excel/CSV uploads"""
+    nome_produto: str = Field(description="Column name for product name")
+    preco: str = Field(description="Column name for price")
+    estoque: Optional[str] = Field(description="Column name for stock quantity")
+    codigo_interno: Optional[str] = Field(description="Column name for internal code")
+    categoria: Optional[str] = Field(description="Column name for category")
+    descricao: Optional[str] = Field(description="Column name for description")
+
 # Cities served
 CITIES_SERVED = [
     "Araçariguama", "São Roque", "Mairinque", "Alumínio", "Ibiúna"
