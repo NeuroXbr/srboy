@@ -782,6 +782,28 @@ def validate_delivery_pin(delivery_id: str, entered_pin: str) -> dict:
 async def health_check():
     return {"status": "healthy", "service": "SrBoy Delivery API v2.0", "new_features": ["waiting_fees", "digital_receipts", "enhanced_pricing"]}
 
+@app.get("/api/cluster/health")
+async def cluster_health_check():
+    """Get cluster data connector health status"""
+    try:
+        connector = get_cluster_connector()
+        health_status = connector.get_cluster_health_status()
+        return health_status
+    except Exception as e:
+        logger.error(f"Error getting cluster health status: {str(e)}")
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "cluster_strategy": "mongodb",
+            "routing_enabled": False,
+            "clusters": {
+                "mongodb": {
+                    "status": "error",
+                    "error": str(e)
+                }
+            },
+            "error": "Failed to get cluster health status"
+        }
+
 @app.post("/api/auth/google")
 async def google_auth(auth_data: dict):
     """Google OAuth authentication with demo data"""
