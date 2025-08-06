@@ -22,6 +22,9 @@ from stripe_payments import stripe_payments, get_stripe_public_key, calculate_pl
 import stripe
 import random
 
+# Setup logging
+logger = logging.getLogger(__name__)
+
 app = FastAPI(title="SrBoy Delivery API", version="2.0.0")
 
 # CORS configuration
