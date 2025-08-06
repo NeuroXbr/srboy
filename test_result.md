@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Test all new administrative endpoints for SrBoy delivery app including admin login, dashboard statistics, user management with filters, delivery management, admin actions (suspend/activate/flag), analytics with performance metrics, and financial reports with city breakdown and payment methods."
+user_problem_statement: "Implementar arquitetura empresarial para clusters de dados e sistema de gerenciamento de inventário no SrBoy. FASE 1: Criar cluster_data_connector.py para Google Bigtable e Google Cloud Spanner. FASE 2: Implementar endpoints de inventário (upload, CRUD manual, listagem com filtros). FASE 3: Testar funcionalidades."
 
 backend:
   - task: "Admin Login endpoint"
