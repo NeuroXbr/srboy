@@ -12,7 +12,7 @@
 
 // Get environment variables
 const getEnvVar = (name, defaultValue = false) => {
-  const value = process.env[name] || import.meta?.env?.[name];
+  const value = process.env[name];
   if (typeof value === 'string') {
     return value.toLowerCase() === 'true';
   }
