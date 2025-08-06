@@ -181,6 +181,233 @@ class Follow(BaseModel):
     followed_id: str  # user being followed
     created_at: datetime = Field(default_factory=datetime.now)
 
+# ============================================
+# E-COMMERCE & MARKETPLACE MODELS (FUTURE USE)
+# ============================================
+
+class Product(BaseModel):
+    """E-commerce product model - READY FOR FUTURE USE"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    lojista_id: str  # Store owner
+    name: str = Field(max_length=200)
+    description: str = Field(max_length=1000)
+    price: float = Field(gt=0)
+    original_price: Optional[float] = None  # For discounts
+    category_id: str
+    subcategory_id: Optional[str] = None
+    
+    # Inventory Management
+    stock_quantity: int = Field(default=0)
+    low_stock_threshold: int = Field(default=5)
+    is_active: bool = Field(default=True)
+    
+    # E-commerce Features
+    images: List[str] = Field(default_factory=list, max_items=10)  # base64 images
+    tags: List[str] = Field(default_factory=list)
+    sku: Optional[str] = None
+    barcode: Optional[str] = None
+    weight: Optional[float] = None  # kg
+    dimensions: Optional[dict] = None  # {"width": 0, "height": 0, "depth": 0}
+    
+    # SEO & Marketing
+    seo_title: Optional[str] = None
+    seo_description: Optional[str] = None
+    featured: bool = Field(default=False)
+    promotion_active: bool = Field(default=False)
+    promotion_start: Optional[datetime] = None
+    promotion_end: Optional[datetime] = None
+    
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+class ProductCategory(BaseModel):
+    """Product category model - READY FOR FUTURE USE"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str = Field(max_length=100)
+    description: Optional[str] = None
+    parent_category_id: Optional[str] = None  # For subcategories
+    image: Optional[str] = None  # base64 encoded
+    is_active: bool = Field(default=True)
+    sort_order: int = Field(default=0)
+    created_at: datetime = Field(default_factory=datetime.now)
+
+class ShoppingCart(BaseModel):
+    """Shopping cart model - READY FOR FUTURE USE"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    session_id: Optional[str] = None  # For anonymous users
+    status: str = Field(default="active")  # active, abandoned, converted
+    
+    # Cart Analytics
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+    abandoned_at: Optional[datetime] = None
+    converted_at: Optional[datetime] = None
+
+class CartItem(BaseModel):
+    """Shopping cart item model - READY FOR FUTURE USE"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    cart_id: str
+    product_id: str
+    quantity: int = Field(gt=0, le=100)
+    unit_price: float = Field(gt=0)
+    total_price: float = Field(gt=0)
+    
+    # Product snapshot (in case product changes)
+    product_name: str
+    product_image: Optional[str] = None
+    
+    added_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+class EcommerceOrder(BaseModel):
+    """E-commerce order model - READY FOR FUTURE USE"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    lojista_id: str
+    cart_id: str
+    
+    # Order Details
+    order_number: str = Field(default_factory=lambda: f"ORD{datetime.now().strftime('%Y%m%d')}{random.randint(1000, 9999)}")
+    status: str = Field(default="pending")  # pending, confirmed, preparing, ready_for_delivery, in_transit, delivered, cancelled
+    
+    # Items & Pricing
+    items_total: float = Field(gt=0)
+    delivery_fee: float = Field(default=0)
+    service_fee: float = Field(default=0)
+    discount_amount: float = Field(default=0)
+    tax_amount: float = Field(default=0)
+    total_amount: float = Field(gt=0)
+    
+    # Delivery Information
+    delivery_type: str = Field(default="delivery")  # delivery, pickup
+    delivery_address: dict
+    estimated_delivery_time: Optional[datetime] = None
+    actual_delivery_time: Optional[datetime] = None
+    
+    # Payment Information
+    payment_method: str  # stripe_card, stripe_pix, wallet
+    payment_status: str = Field(default="pending")  # pending, paid, failed, refunded
+    stripe_payment_intent_id: Optional[str] = None
+    
+    # Special Instructions
+    notes: Optional[str] = Field(max_length=500)
+    special_instructions: Optional[str] = Field(max_length=300)
+    
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.now)
+    confirmed_at: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
+    cancelled_at: Optional[datetime] = None
+
+class FastFoodMenu(BaseModel):
+    """Fast food menu model - READY FOR FUTURE USE"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    restaurant_id: str  # lojista_id
+    name: str = Field(max_length=100)
+    description: Optional[str] = Field(max_length=500)
+    
+    # Menu Configuration
+    is_active: bool = Field(default=True)
+    availability_start: Optional[str] = None  # "08:00"
+    availability_end: Optional[str] = None    # "22:00"
+    days_available: List[str] = Field(default_factory=lambda: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"])
+    
+    created_at: datetime = Field(default_factory=datetime.now)
+
+class FastFoodItem(BaseModel):
+    """Fast food item model - READY FOR FUTURE USE"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    menu_id: str
+    restaurant_id: str
+    
+    # Item Details
+    name: str = Field(max_length=150)
+    description: str = Field(max_length=500)
+    price: float = Field(gt=0)
+    category: str  # appetizer, main_course, dessert, beverage
+    
+    # Fast Food Specific
+    preparation_time_minutes: int = Field(default=15)
+    calories: Optional[int] = None
+    allergens: List[str] = Field(default_factory=list)
+    spice_level: int = Field(default=0, ge=0, le=5)  # 0-5 spice level
+    
+    # Customization Options
+    customization_options: List[dict] = Field(default_factory=list)  # [{name, type, required, options}]
+    size_options: List[dict] = Field(default_factory=list)  # [{size, price_modifier}]
+    
+    # Availability
+    is_available: bool = Field(default=True)
+    daily_limit: Optional[int] = None
+    sold_today: int = Field(default=0)
+    
+    # Media
+    images: List[str] = Field(default_factory=list, max_items=5)
+    
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+# ============================================
+# STRIPE PAYMENT MODELS (READY FOR INTEGRATION)  
+# ============================================
+
+class StripeAccount(BaseModel):
+    """Stripe Connect account for lojistas and motoboys - READY FOR USE"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    user_type: str  # lojista, motoboy
+    
+    # Stripe Information
+    stripe_account_id: Optional[str] = None
+    stripe_person_id: Optional[str] = None
+    account_status: str = Field(default="pending")  # pending, verified, restricted, rejected
+    
+    # Banking Information (encrypted)
+    bank_account_verified: bool = Field(default=False)
+    payout_schedule: str = Field(default="daily")  # daily, weekly, monthly
+    
+    # Verification Requirements
+    verification_status: dict = Field(default_factory=dict)
+    required_documents: List[str] = Field(default_factory=list)
+    
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+class PaymentTransaction(BaseModel):
+    """Payment transaction model - READY FOR USE"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    
+    # Transaction Basics
+    transaction_type: str  # delivery_payment, ecommerce_payment, refund, payout
+    amount: float = Field(gt=0)
+    currency: str = Field(default="BRL")
+    status: str = Field(default="pending")  # pending, processing, succeeded, failed, cancelled
+    
+    # Related Entities
+    user_id: str  # Payer
+    recipient_id: Optional[str] = None  # For payouts
+    delivery_id: Optional[str] = None
+    order_id: Optional[str] = None
+    
+    # Stripe Information
+    stripe_payment_intent_id: Optional[str] = None
+    stripe_charge_id: Optional[str] = None
+    stripe_transfer_id: Optional[str] = None
+    payment_method_type: str  # card, pix, boleto
+    
+    # Fee Structure
+    platform_fee: float = Field(default=0)
+    stripe_fee: float = Field(default=0)
+    net_amount: float = Field(gt=0)
+    
+    # Metadata
+    metadata: dict = Field(default_factory=dict)
+    failure_reason: Optional[str] = None
+    
+    created_at: datetime = Field(default_factory=datetime.now)
+    processed_at: Optional[datetime] = None
+
 # Cities served
 CITIES_SERVED = [
     "Araçariguama", "São Roque", "Mairinque", "Alumínio", "Ibiúna"
