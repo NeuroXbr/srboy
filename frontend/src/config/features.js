@@ -59,8 +59,8 @@ export const SERVICES = {
 
 // Stripe configuration
 export const STRIPE_CONFIG = {
-  PUBLIC_KEY: process.env.REACT_APP_STRIPE_PUBLIC_KEY || import.meta?.env?.REACT_APP_STRIPE_PUBLIC_KEY || '',
-  ENABLED: FEATURES.STRIPE_ENABLED && Boolean(process.env.REACT_APP_STRIPE_PUBLIC_KEY || import.meta?.env?.REACT_APP_STRIPE_PUBLIC_KEY)
+  PUBLIC_KEY: process.env.REACT_APP_STRIPE_PUBLIC_KEY || '',
+  ENABLED: FEATURES.STRIPE_ENABLED && Boolean(process.env.REACT_APP_STRIPE_PUBLIC_KEY)
 };
 
 // UI Configuration
