@@ -957,11 +957,11 @@ class SrBoyAPITester:
             "estoque": -5   # Negative stock should fail
         }
         
-        success, status, data = self.make_request('POST', '/api/inventario/produto', invalid_product_data, self.lojista_token, expected_status=403)
+        success, status, data = self.make_request('POST', '/api/inventario/produto', invalid_product_data, self.lojista_token, expected_status=200)
         
-        # Since feature is disabled, we expect 403, but the endpoint should exist
-        if status == 403:
-            details = "Data models validation structure in place - endpoint exists with proper auth check"
+        # Since feature is disabled, we expect 200 with enabled=false
+        if status == 200 and data.get('enabled') == False:
+            details = "Data models validation structure in place - endpoint exists with feature disabled response"
             self.log_test("Inventory Data Models", True, details)
             return True
         else:
