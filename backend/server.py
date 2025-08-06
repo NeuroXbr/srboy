@@ -9,6 +9,7 @@ import uuid
 from datetime import datetime, timedelta
 import jwt
 import random
+import logging
 from geopy.distance import geodesic
 import asyncio
 from security_algorithms import analyze_motoboy_security, optimize_delivery_routes, predict_demand_for_city, moderate_chat_message
