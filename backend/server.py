@@ -2895,6 +2895,603 @@ async def get_shopping_cart(user_id: str, credentials: HTTPAuthorizationCredenti
         "message": "Shopping cart ready - implement cart loading logic"
     }
 
+# ============================================
+# INVENTORY MANAGEMENT ENDPOINTS
+# ============================================
+
+@app.post("/api/inventario/upload")
+async def upload_inventory_file(request: Request, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """
+    Upload Excel/CSV file for inventory management.
+    
+    This endpoint handles file upload and initial processing for inventory items.
+    """
+    try:
+        # Check if inventory module is enabled
+        if not FEATURE_INVENTORY_ENABLED:
+            return {
+                "enabled": False,
+                "message": "Módulo de inventário desabilitado. Contate o administrador.",
+                "upload_success": False
+            }
+        
+        if not INVENTORY_BULK_UPLOAD_ENABLED:
+            return {
+                "enabled": False,
+                "message": "Upload em lote desabilitado. Use cadastro manual.",
+                "upload_success": False
+            }
+        
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload["user_id"]
+        user_type = payload["user_type"]
+        
+        if user_type != "lojista":
+            raise HTTPException(status_code=403, detail="Apenas lojistas podem fazer upload de inventário")
+        
+        # Get form data
+        form = await request.form()
+        file = form.get("file")
+        
+        if not file:
+            raise HTTPException(status_code=400, detail="Arquivo não encontrado")
+        
+        # Validate file extension
+        file_extension = os.path.splitext(file.filename)[1].lower()
+        if file_extension not in ALLOWED_FILE_EXTENSIONS:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Tipo de arquivo não permitido. Permitidos: {', '.join(ALLOWED_FILE_EXTENSIONS)}"
+            )
+        
+        # Read file content
+        file_content = await file.read()
+        file_size = len(file_content)
+        
+        # Validate file size
+        if file_size > MAX_UPLOAD_SIZE_MB * 1024 * 1024:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Arquivo muito grande. Máximo permitido: {MAX_UPLOAD_SIZE_MB}MB"
+            )
+        
+        # Create batch upload record
+        batch_id = str(uuid.uuid4())
+        batch_upload = InventoryBatchUpload(
+            id=batch_id,
+            lojista_id=user_id,
+            filename=file.filename,
+            file_size=file_size,
+            file_type=file_extension[1:],  # Remove the dot
+            total_rows=0,  # Will be updated after processing
+            status="uploaded"
+        ).dict()
+        
+        # Save file temporarily
+        file_path = os.path.join(UPLOAD_TEMP_PATH, f"{batch_id}_{file.filename}")
+        with open(file_path, "wb") as buffer:
+            buffer.write(file_content)
+        
+        # Insert batch record
+        inventory_batches_collection.insert_one(batch_upload)
+        batch_upload.pop("_id", None)
+        
+        # Process file and extract preview data
+        try:
+            if file_extension in ['.xlsx', '.xls']:
+                preview_data = process_excel_file(file_path, batch_id)
+            elif file_extension == '.csv':
+                preview_data = process_csv_file(file_path, batch_id)
+            else:
+                raise HTTPException(status_code=400, detail="Formato de arquivo não suportado")
+            
+            # Update batch with total rows
+            inventory_batches_collection.update_one(
+                {"id": batch_id},
+                {"$set": {
+                    "total_rows": preview_data["total_rows"],
+                    "status": "ready_for_mapping"
+                }}
+            )
+            
+            return {
+                "upload_success": True,
+                "batch_id": batch_id,
+                "filename": file.filename,
+                "file_size": file_size,
+                "total_rows": preview_data["total_rows"],
+                "preview_data": preview_data["preview"],
+                "suggested_columns": preview_data["columns"],
+                "message": "Arquivo carregado com sucesso. Configure o mapeamento de campos."
+            }
+            
+        except Exception as e:
+            # Update batch status to failed
+            inventory_batches_collection.update_one(
+                {"id": batch_id},
+                {"$set": {
+                    "status": "failed",
+                    "validation_errors": [{"error": str(e)}]
+                }}
+            )
+            
+            # Clean up file
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            
+            raise HTTPException(status_code=400, detail=f"Erro ao processar arquivo: {str(e)}")
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expirado")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+@app.post("/api/inventario/produto")
+async def create_inventory_item(item_data: dict, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """
+    Create inventory item manually.
+    
+    Endpoint for manual product entry with validation.
+    """
+    try:
+        # Check if inventory module is enabled
+        if not FEATURE_INVENTORY_ENABLED:
+            return {
+                "enabled": False,
+                "message": "Módulo de inventário desabilitado. Contate o administrador.",
+                "success": False
+            }
+        
+        if not INVENTORY_MANUAL_ENTRY_ENABLED:
+            return {
+                "enabled": False,
+                "message": "Cadastro manual desabilitado.",
+                "success": False
+            }
+        
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload["user_id"]
+        user_type = payload["user_type"]
+        
+        if user_type != "lojista":
+            raise HTTPException(status_code=403, detail="Apenas lojistas podem gerenciar inventário")
+        
+        # Validate required fields
+        required_fields = ["nome", "preco"]
+        for field in required_fields:
+            if field not in item_data or not item_data[field]:
+                raise HTTPException(status_code=400, detail=f"Campo '{field}' é obrigatório")
+        
+        # Validate price
+        try:
+            preco = float(item_data["preco"])
+            if preco <= 0:
+                raise ValueError()
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="Preço deve ser um número positivo")
+        
+        # Validate stock
+        estoque = 0
+        if "estoque" in item_data:
+            try:
+                estoque = int(item_data["estoque"])
+                if estoque < 0:
+                    raise ValueError()
+            except (ValueError, TypeError):
+                raise HTTPException(status_code=400, detail="Estoque deve ser um número inteiro não negativo")
+        
+        # Create inventory item
+        inventory_item = InventoryItem(
+            lojista_id=user_id,
+            nome=item_data["nome"][:200],  # Truncate to max length
+            descricao=item_data.get("descricao", "")[:1000],
+            preco=preco,
+            codigo_interno=item_data.get("codigo_interno", "")[:50],
+            estoque=estoque,
+            estoque_minimo=int(item_data.get("estoque_minimo", 5)),
+            categoria=item_data.get("categoria", "")[:100],
+            unidade_medida=item_data.get("unidade_medida", "un"),
+            import_source="manual"
+        ).dict()
+        
+        # Check for duplicate code_interno
+        if inventory_item["codigo_interno"]:
+            existing_item = inventory_items_collection.find_one({
+                "lojista_id": user_id,
+                "codigo_interno": inventory_item["codigo_interno"],
+                "ativo": True
+            })
+            if existing_item:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Já existe um produto com este código interno"
+                )
+        
+        # Insert item
+        inventory_items_collection.insert_one(inventory_item)
+        inventory_item.pop("_id", None)
+        
+        return {
+            "success": True,
+            "message": "Produto cadastrado com sucesso",
+            "produto": inventory_item
+        }
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expirado")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+@app.put("/api/inventario/produto/{produto_id}")
+async def update_inventory_item(produto_id: str, item_data: dict, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """
+    Update inventory item.
+    
+    Endpoint for editing existing products.
+    """
+    try:
+        # Check if inventory module is enabled
+        if not FEATURE_INVENTORY_ENABLED:
+            return {
+                "enabled": False,
+                "message": "Módulo de inventário desabilitado. Contate o administrador.",
+                "success": False
+            }
+        
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload["user_id"]
+        user_type = payload["user_type"]
+        
+        if user_type != "lojista":
+            raise HTTPException(status_code=403, detail="Apenas lojistas podem gerenciar inventário")
+        
+        # Find existing item
+        existing_item = inventory_items_collection.find_one({
+            "id": produto_id,
+            "lojista_id": user_id
+        })
+        
+        if not existing_item:
+            raise HTTPException(status_code=404, detail="Produto não encontrado")
+        
+        # Prepare update data
+        update_data = {"updated_at": datetime.now()}
+        
+        # Update allowed fields
+        allowed_updates = ["nome", "descricao", "preco", "codigo_interno", "estoque", "estoque_minimo", "categoria", "unidade_medida", "ativo"]
+        
+        for field in allowed_updates:
+            if field in item_data:
+                if field == "preco":
+                    try:
+                        preco = float(item_data[field])
+                        if preco <= 0:
+                            raise ValueError()
+                        update_data[field] = preco
+                    except (ValueError, TypeError):
+                        raise HTTPException(status_code=400, detail="Preço deve ser um número positivo")
+                
+                elif field in ["estoque", "estoque_minimo"]:
+                    try:
+                        value = int(item_data[field])
+                        if value < 0:
+                            raise ValueError()
+                        update_data[field] = value
+                    except (ValueError, TypeError):
+                        raise HTTPException(status_code=400, detail=f"{field} deve ser um número inteiro não negativo")
+                
+                elif field == "ativo":
+                    update_data[field] = bool(item_data[field])
+                
+                else:
+                    # String fields with length limits
+                    max_lengths = {
+                        "nome": 200,
+                        "descricao": 1000,
+                        "codigo_interno": 50,
+                        "categoria": 100,
+                        "unidade_medida": 10
+                    }
+                    max_length = max_lengths.get(field, 200)
+                    update_data[field] = str(item_data[field])[:max_length]
+        
+        # Check for duplicate codigo_interno if being updated
+        if "codigo_interno" in update_data and update_data["codigo_interno"]:
+            duplicate_item = inventory_items_collection.find_one({
+                "lojista_id": user_id,
+                "codigo_interno": update_data["codigo_interno"],
+                "ativo": True,
+                "id": {"$ne": produto_id}
+            })
+            if duplicate_item:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Já existe outro produto com este código interno"
+                )
+        
+        # Update item
+        result = inventory_items_collection.update_one(
+            {"id": produto_id, "lojista_id": user_id},
+            {"$set": update_data}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(status_code=400, detail="Nenhuma alteração foi feita")
+        
+        # Get updated item
+        updated_item = inventory_items_collection.find_one({"id": produto_id})
+        updated_item.pop("_id", None)
+        
+        return {
+            "success": True,
+            "message": "Produto atualizado com sucesso",
+            "produto": updated_item
+        }
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expirado")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+@app.delete("/api/inventario/produto/{produto_id}")
+async def delete_inventory_item(produto_id: str, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """
+    Delete inventory item (soft delete).
+    
+    Marks the product as inactive instead of removing it.
+    """
+    try:
+        # Check if inventory module is enabled
+        if not FEATURE_INVENTORY_ENABLED:
+            return {
+                "enabled": False,
+                "message": "Módulo de inventário desabilitado. Contate o administrador.",
+                "success": False
+            }
+        
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload["user_id"]
+        user_type = payload["user_type"]
+        
+        if user_type != "lojista":
+            raise HTTPException(status_code=403, detail="Apenas lojistas podem gerenciar inventário")
+        
+        # Find existing item
+        existing_item = inventory_items_collection.find_one({
+            "id": produto_id,
+            "lojista_id": user_id,
+            "ativo": True
+        })
+        
+        if not existing_item:
+            raise HTTPException(status_code=404, detail="Produto não encontrado ou já inativo")
+        
+        # Soft delete (mark as inactive)
+        result = inventory_items_collection.update_one(
+            {"id": produto_id, "lojista_id": user_id},
+            {"$set": {
+                "ativo": False,
+                "updated_at": datetime.now()
+            }}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(status_code=400, detail="Erro ao excluir produto")
+        
+        return {
+            "success": True,
+            "message": "Produto excluído com sucesso",
+            "produto_id": produto_id
+        }
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expirado")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+@app.get("/api/inventario/produtos")
+async def get_inventory_items(
+    page: int = 1, 
+    limit: int = 20, 
+    categoria: Optional[str] = None,
+    busca: Optional[str] = None,
+    apenas_ativos: bool = True,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """
+    Get inventory items with pagination and filters.
+    
+    Returns paginated list of products with search and filter capabilities.
+    """
+    try:
+        # Check if inventory module is enabled
+        if not FEATURE_INVENTORY_ENABLED:
+            return {
+                "enabled": False,
+                "message": "Módulo de inventário desabilitado. Contate o administrador.",
+                "produtos": [],
+                "total": 0
+            }
+        
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload["user_id"]
+        user_type = payload["user_type"]
+        
+        if user_type != "lojista":
+            raise HTTPException(status_code=403, detail="Apenas lojistas podem ver inventário")
+        
+        # Build query
+        query = {"lojista_id": user_id}
+        
+        if apenas_ativos:
+            query["ativo"] = True
+        
+        if categoria:
+            query["categoria"] = categoria
+        
+        if busca:
+            # Search in name, description, or internal code
+            query["$or"] = [
+                {"nome": {"$regex": busca, "$options": "i"}},
+                {"descricao": {"$regex": busca, "$options": "i"}},
+                {"codigo_interno": {"$regex": busca, "$options": "i"}}
+            ]
+        
+        # Calculate pagination
+        skip = (page - 1) * limit
+        
+        # Get total count
+        total_count = inventory_items_collection.count_documents(query)
+        
+        # Get items
+        items = list(inventory_items_collection.find(query)
+                    .sort("created_at", -1)
+                    .skip(skip)
+                    .limit(limit))
+        
+        # Clean up items
+        for item in items:
+            item.pop("_id", None)
+        
+        # Get categories for filter
+        categories = inventory_items_collection.distinct("categoria", {"lojista_id": user_id, "ativo": True})
+        categories = [cat for cat in categories if cat]  # Remove empty categories
+        
+        # Calculate statistics
+        total_products = inventory_items_collection.count_documents({"lojista_id": user_id, "ativo": True})
+        low_stock_products = inventory_items_collection.count_documents({
+            "lojista_id": user_id, 
+            "ativo": True,
+            "$expr": {"$lte": ["$estoque", "$estoque_minimo"]}
+        })
+        
+        return {
+            "enabled": True,
+            "produtos": items,
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "total": total_count,
+                "pages": ((total_count - 1) // limit) + 1 if total_count > 0 else 0
+            },
+            "filters": {
+                "categorias": categories
+            },
+            "statistics": {
+                "total_products": total_products,
+                "low_stock_products": low_stock_products
+            }
+        }
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expirado")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+def process_excel_file(file_path: str, batch_id: str) -> dict:
+    """
+    Process Excel file and extract preview data.
+    
+    Args:
+        file_path: Path to the uploaded file
+        batch_id: Batch upload ID
+    
+    Returns:
+        Dictionary with preview data and column information
+    """
+    try:
+        import pandas as pd
+        
+        # Read Excel file
+        df = pd.read_excel(file_path)
+        
+        # Get column names
+        columns = df.columns.tolist()
+        
+        # Get preview data (first 5 rows)
+        preview_rows = []
+        for index, row in df.head(5).iterrows():
+            row_data = {}
+            for col in columns:
+                value = row[col]
+                if pd.isna(value):
+                    value = ""
+                else:
+                    value = str(value)
+                row_data[col] = value
+            preview_rows.append(row_data)
+        
+        return {
+            "total_rows": len(df),
+            "columns": columns,
+            "preview": preview_rows
+        }
+        
+    except ImportError:
+        raise HTTPException(status_code=500, detail="Biblioteca pandas não encontrada. Contate o administrador.")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Erro ao processar arquivo Excel: {str(e)}")
+
+def process_csv_file(file_path: str, batch_id: str) -> dict:
+    """
+    Process CSV file and extract preview data.
+    
+    Args:
+        file_path: Path to the uploaded file
+        batch_id: Batch upload ID
+    
+    Returns:
+        Dictionary with preview data and column information
+    """
+    try:
+        import pandas as pd
+        
+        # Read CSV file with different encodings
+        encodings = ['utf-8', 'latin1', 'cp1252']
+        df = None
+        
+        for encoding in encodings:
+            try:
+                df = pd.read_csv(file_path, encoding=encoding)
+                break
+            except UnicodeDecodeError:
+                continue
+        
+        if df is None:
+            raise HTTPException(status_code=400, detail="Não foi possível ler o arquivo CSV. Verifique a codificação.")
+        
+        # Get column names
+        columns = df.columns.tolist()
+        
+        # Get preview data (first 5 rows)
+        preview_rows = []
+        for index, row in df.head(5).iterrows():
+            row_data = {}
+            for col in columns:
+                value = row[col]
+                if pd.isna(value):
+                    value = ""
+                else:
+                    value = str(value)
+                row_data[col] = value
+            preview_rows.append(row_data)
+        
+        return {
+            "total_rows": len(df),
+            "columns": columns,
+            "preview": preview_rows
+        }
+        
+    except ImportError:
+        raise HTTPException(status_code=500, detail="Biblioteca pandas não encontrada. Contate o administrador.")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Erro ao processar arquivo CSV: {str(e)}")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
