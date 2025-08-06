@@ -198,13 +198,12 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Admin Login endpoint"
-    - "Admin Dashboard endpoint"
-    - "Admin User Management endpoint"
-    - "Admin Delivery Management endpoint"
-    - "Admin User Actions endpoint"
-    - "Admin Analytics endpoint"
-    - "Admin Financial Report endpoint"
+    - "Cluster Data Connector"
+    - "Inventory Upload endpoint"
+    - "Inventory Manual CRUD endpoints"
+    - "Inventory Data Models"
+    - "Environment Configuration Updates"
+    - "Dependencies Installation"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
