@@ -931,9 +931,10 @@ class SrBoyAPITester:
         details_list = []
         
         for method, endpoint, data in endpoints_to_test:
-            success, status, response = self.make_request(method, endpoint, data, self.lojista_token, expected_status=403)
+            success, status, response = self.make_request(method, endpoint, data, self.lojista_token, expected_status=200)
             
-            if status == 403 and 'detail' in response:
+            # Check for feature disabled response
+            if status == 200 and response.get('enabled') == False:
                 details_list.append(f"{method} {endpoint}: ✓")
             else:
                 details_list.append(f"{method} {endpoint}: ✗ (got {status})")
