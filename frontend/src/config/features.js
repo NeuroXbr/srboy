@@ -51,7 +51,7 @@ export const FEATURES = {
 
 // Service URLs configuration
 export const SERVICES = {
-  BACKEND_URL: process.env.REACT_APP_BACKEND_URL || import.meta?.env?.REACT_APP_BACKEND_URL || 'http://localhost:8001',
+  BACKEND_URL: process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001',
   CATALOG_SERVICE_URL: process.env.REACT_APP_CATALOG_SERVICE_URL || 'http://localhost:8002',
   CART_SERVICE_URL: process.env.REACT_APP_CART_SERVICE_URL || 'http://localhost:8003',
   ORDER_SERVICE_URL: process.env.REACT_APP_ORDER_SERVICE_URL || 'http://localhost:8004'
