@@ -999,21 +999,21 @@ class SrBoyAPITester:
             return False
 
         # Test that FEATURE_INVENTORY_ENABLED=false is working
-        success, status, data = self.make_request('GET', '/api/inventario/produtos', token=self.lojista_token, expected_status=403)
+        success, status, data = self.make_request('GET', '/api/inventario/produtos', token=self.lojista_token, expected_status=200)
         
-        if status == 403:
-            # Test that the error message indicates feature is disabled
-            error_message = data.get('detail', '').lower()
-            if 'feature' in error_message or 'habilitada' in error_message or 'disabled' in error_message:
-                details = "Environment flags working - FEATURE_INVENTORY_ENABLED=false properly enforced"
+        if status == 200 and data.get('enabled') == False:
+            # Test that the message indicates feature is disabled
+            message = data.get('message', '').lower()
+            if 'desabilitado' in message or 'disabled' in message:
+                details = f"Environment flags working - FEATURE_INVENTORY_ENABLED=false properly enforced: {data.get('message', '')}"
                 self.log_test("Environment Configuration", True, details)
                 return True
             else:
-                details = f"Feature disabled but wrong error message: {data.get('detail', '')}"
+                details = f"Feature disabled but wrong message: {data.get('message', '')}"
                 self.log_test("Environment Configuration", False, details)
                 return False
         else:
-            details = f"Environment flags not working - Expected 403, got {status}: {data}"
+            details = f"Environment flags not working - Expected 200 with enabled=false, got {status}: {data}"
             self.log_test("Environment Configuration", False, details)
             return False
 
