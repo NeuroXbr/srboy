@@ -76,6 +76,23 @@ payment_transactions_collection = db.payment_transactions
 security = HTTPBearer()
 JWT_SECRET = os.environ.get('JWT_SECRET', 'srboy-secret-key-2024')
 
+# ============================================
+# INVENTORY CONFIGURATION
+# ============================================
+FEATURE_INVENTORY_ENABLED = os.environ.get('FEATURE_INVENTORY_ENABLED', 'false').lower() == 'true'
+INVENTORY_MODULE_ENABLED = os.environ.get('INVENTORY_MODULE_ENABLED', 'false').lower() == 'true'
+INVENTORY_BULK_UPLOAD_ENABLED = os.environ.get('INVENTORY_BULK_UPLOAD_ENABLED', 'false').lower() == 'true'
+INVENTORY_MANUAL_ENTRY_ENABLED = os.environ.get('INVENTORY_MANUAL_ENTRY_ENABLED', 'false').lower() == 'true'
+
+# File upload configuration
+MAX_UPLOAD_SIZE_MB = int(os.environ.get('MAX_UPLOAD_SIZE_MB', 50))
+ALLOWED_FILE_EXTENSIONS = os.environ.get('ALLOWED_FILE_EXTENSIONS', '.xlsx,.xls,.csv').split(',')
+UPLOAD_TEMP_PATH = os.environ.get('UPLOAD_TEMP_PATH', '/tmp/srboy_uploads')
+INVENTORY_BATCH_SIZE = int(os.environ.get('INVENTORY_BATCH_SIZE', 1000))
+
+# Create upload directory if it doesn't exist
+os.makedirs(UPLOAD_TEMP_PATH, exist_ok=True)
+
 # Pydantic Models
 class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
