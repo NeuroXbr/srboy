@@ -276,6 +276,11 @@ test_plan:
     - "Inventory Data Models"
     - "Environment Configuration Updates"
     - "Dependencies Installation"
+    - "Sistema de Entregas (Core Functionality)"
+    - "Dashboard Administrativo"
+    - "Funcionalidades Sociais"
+    - "Performance e Estabilidade"
+    - "Integração com Novos Endpoints"
 
 agent_communication:
     - agent: "main"
