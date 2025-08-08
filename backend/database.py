@@ -5,11 +5,8 @@ Migrated from MongoDB to PostgreSQL for production scalability
 
 import os
 import logging
-from sqlalchemy import create_engine, MetaData
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import Column, String, Integer, Float, Boolean, DateTime, Text, JSON
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import create_engine, MetaData, Column, String, Integer, Float, Boolean, DateTime, Text, JSON
+from sqlalchemy.orm import declarative_base, sessionmaker
 from datetime import datetime
 import uuid
 
