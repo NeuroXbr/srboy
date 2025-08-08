@@ -148,8 +148,7 @@ class GoogleAuthenticator:
         admin_emails = [
             'admin@srboy.com',
             'naldino@srboy.com',
-            # ADICIONE SEU EMAIL AQUI para acesso administrativo
-            # Exemplo: 'seu.email@gmail.com',
+            'junior.lima@srdeliveri.com',  # ADMIN PRINCIPAL - SrBoy
         ]
         
         if email.endswith('@srboy.com') or email.lower() in admin_emails:
