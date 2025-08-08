@@ -292,7 +292,7 @@ class PaymentTransaction(Base):
     stripe_fee = Column(Float, default=0)
     net_amount = Column(Float, nullable=False)
     
-    metadata = Column(JSON, default=dict)
+    transaction_metadata = Column(JSON, default=dict)  # Renamed from 'metadata'
     failure_reason = Column(String(500), nullable=True)
     
     created_at = Column(DateTime, default=datetime.now, nullable=False)
