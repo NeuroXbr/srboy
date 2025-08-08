@@ -1,0 +1,44 @@
+# Google Cloud ignore file for SrBoy application
+
+# Git files
+.git/
+.gitignore
+
+# Node modules
+node_modules/
+frontend/node_modules/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment files
+.env
+*.env
+.env.*
+
+# Build artifacts
+frontend/build/
+frontend/dist/
+
+# Development files
+.vscode/
+.idea/
+README.md
+*.md
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+
+# Test files
+test/
+tests/
