@@ -144,8 +144,15 @@ class GoogleAuthenticator:
         Returns:
             User type string (motoboy, lojista, admin)
         """
-        # Admin users (srboy.com domain)
-        if email.endswith('@srboy.com'):
+        # Admin users (srboy.com domain OR specific admin emails)
+        admin_emails = [
+            'admin@srboy.com',
+            'naldino@srboy.com',
+            # ADICIONE SEU EMAIL AQUI para acesso administrativo
+            # Exemplo: 'seu.email@gmail.com',
+        ]
+        
+        if email.endswith('@srboy.com') or email.lower() in admin_emails:
             return 'admin'
         
         # Business accounts (common business domains)
