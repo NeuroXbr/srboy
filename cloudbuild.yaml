@@ -52,7 +52,7 @@ steps:
       - '300'
       - '--allow-unauthenticated'
       - '--set-env-vars'
-      - 'DATABASE_URL=$$DATABASE_URL,STRIPE_SECRET_KEY=$$STRIPE_SECRET_KEY,GOOGLE_CLIENT_ID=$$GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET=$$GOOGLE_CLIENT_SECRET,CORS_ALLOWED_ORIGINS=https://srdeliveri.com'
+      - 'DATABASE_URL=$$DATABASE_URL,STRIPE_SECRET_KEY=$$STRIPE_SECRET_KEY,GOOGLE_CLIENT_ID=$$GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET=$$GOOGLE_CLIENT_SECRET,CORS_ALLOWED_ORIGINS=https://srdeliveri.com,ADMIN_EMAIL=junior.lima@srdeliveri.com,FEATURE_INVENTORY_ENABLED=true,ECOMMERCE_MODULE_ENABLED=true'
 
 # Configure substitutions for environment variables
 substitutions:
